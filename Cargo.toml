@@ -7,3 +7,9 @@ edition = "2021"
 tokio = { version = "1.17.0", features = ["full"] }
 warp = {version = "0.3.2"}
 rand = {version = "0.5.0"}
+handlebars = {version = "4.3.5"}
+serde = {version = "1.0.151"}
+serde_json = {version = "1.0.91"}
+serde_derive = {version = "1.0.151"}
+simple_logger = {version = "4.0.0"}
+log = {version = "0.4.17"}
