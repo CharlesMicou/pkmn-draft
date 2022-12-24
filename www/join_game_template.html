@@ -10,7 +10,7 @@ This is the join game template.
 <form action={{url_to_submit}} method="POST">
   <div>
     <label for="player_name">Player Name</label>
-    <input name="player_name" id="player_name" value="" />
+    <input name="player_name" id="player_name" value=""  minlength="1" maxlength="20" required/>
   </div>
   <div>
     <button>Join Game</button>

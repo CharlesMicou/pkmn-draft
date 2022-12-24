@@ -25,7 +25,6 @@ if __name__ == '__main__':
     asset_dir = sys.argv[2]
     output_dir = sys.argv[3]
 
-    draft_id = 0
     draft_items = []
     for element in soup.body:
         # Pokemon descriptions are contained within 'article'
@@ -39,19 +38,15 @@ if __name__ == '__main__':
                         image_path = x.attrs["src"]
                         if not check_image_exists(asset_dir, image_path):
                             print(f"Missing asset {image_path} for {pokemon_name} {image_type}")
-                        fixed_path = fix_image_path(image_path, "foo")
+                        fixed_path = fix_image_path(image_path, "static/assets")
                         x.attrs["src"] = fixed_path
-
-
-            element.attrs["draft_id"] = draft_id
-            element.append(make_template_entrypoint())
             draft_items.append(element)
-            draft_id += 1
 
-    for element in draft_items:
-        draft_id = element.attrs["draft_id"]
+
+    for draft_id, element in enumerate(draft_items):
         with open(f"{output_dir}/{draft_id}.html", 'w') as file:
-            file.write(str(element))
+            for contents in element.contents:
+                file.write(str(contents))
 
             
 

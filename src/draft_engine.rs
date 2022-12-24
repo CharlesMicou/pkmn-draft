@@ -2,6 +2,7 @@ use std::io;
 use std::collections::{HashMap, VecDeque};
 use std::io::ErrorKind;
 use rand::{RngCore, thread_rng, Rng};
+use crate::{lobby_manager, LobbyManagerResponse};
 
 extern crate rand;
 
@@ -9,11 +10,11 @@ pub type DraftItemId = u64;
 pub type PackId = u64;
 pub type PlayerId = u64;
 pub type PackContents = Vec<DraftItemId>;
-
+pub type ResponseChannel = tokio::sync::oneshot::Sender<lobby_manager::LobbyManagerResponse>;
 
 pub struct PlayerState {
-    allocated_items: Vec<DraftItemId>,
-    pending_packs: VecDeque<PackId>,
+    pub allocated_items: Vec<DraftItemId>,
+    pub pending_packs: VecDeque<PackId>,
 }
 
 pub struct DraftState {
@@ -24,10 +25,32 @@ pub struct DraftState {
     draft_direction: bool,
 }
 
+pub struct UpdateListener {
+    response_channel: Option<ResponseChannel>,
+    game_state: u64,
+}
+
+impl UpdateListener {
+    pub fn flush(&mut self) -> io::Result<()> {
+        let channel = self.response_channel.take();
+        if channel.is_none() {
+            return Ok(());
+        }
+        match channel.unwrap().send(LobbyManagerResponse::UpdateReady) {
+            Ok(_) => Ok(()),
+            Err(_) => {
+                // No need to log this: actually happens if users close browser.
+                return Err(io::Error::new(io::ErrorKind::ConnectionRefused, "Receiver has dropped"));
+            }
+        }
+    }
+}
+
 pub struct DraftLobby {
     player_capacity: usize,
     draft_state: Option<DraftState>,
     joined_players: HashMap<PlayerId, String>,
+    listeners: HashMap<PlayerId, Vec<UpdateListener>>,
 }
 
 impl DraftLobby {
@@ -36,6 +59,7 @@ impl DraftLobby {
             player_capacity,
             draft_state: None,
             joined_players: HashMap::new(),
+            listeners: HashMap::new(),
         };
     }
 
@@ -52,7 +76,22 @@ impl DraftLobby {
         }
         let id = self.generate_player_id();
         self.joined_players.insert(id, name);
+        self.listeners.insert(id, vec![]);
+        self.check_listeners();
         return Ok(id);
+    }
+
+    pub fn add_listener(&mut self, player_id: PlayerId, game_state: u64, response_channel: ResponseChannel) -> io::Result<()> {
+        let current_state = self.compute_state(&player_id);
+        let mut listener = UpdateListener{response_channel: Some(response_channel), game_state};
+        if current_state != game_state {
+            return listener.flush()
+        }
+        if !self.listeners.contains_key(&player_id) {
+            return listener.flush()
+        }
+        self.listeners.get_mut(&player_id).unwrap().push(listener);
+        Ok(())
     }
 
     pub fn start(&mut self, item_list: &Vec<DraftItemId>) -> io::Result<()> {
@@ -63,10 +102,50 @@ impl DraftLobby {
             return Err(io::Error::new(io::ErrorKind::InvalidInput, "Lobby has no players"));
         }
         let player_ids: Vec<PlayerId> = self.joined_players.keys().cloned().collect();
-        let (num_rounds, pack_size) = get_rounds_and_pack_sizes(player_ids.len());
-        let packs = make_random_packs(pack_size, num_rounds, item_list)?;
+        let (num_rounds, num_items_in_pack) = get_rounds_and_pack_sizes(player_ids.len());
+        let packs = make_random_packs(num_rounds * player_ids.len(), num_items_in_pack, item_list)?;
         self.draft_state = Some(DraftState::new(player_ids, packs, num_rounds));
+        self.check_listeners();
         Ok(())
+    }
+
+    pub fn get_player_names(&self) -> Vec<String> {
+        self.joined_players.values().cloned().collect()
+    }
+
+    pub fn draft_has_started(&self) -> bool {
+        self.draft_state.is_some()
+    }
+
+    pub fn get_player_draft_state(&self, player_id: &PlayerId) -> Option<&PlayerState> {
+        if self.draft_state.is_none() {
+            return None;
+        }
+        return self.draft_state.as_ref().unwrap().players.get(player_id);
+    }
+
+    pub fn make_pick(&mut self, player_id: PlayerId, picked_item_id: DraftItemId) -> io::Result<()> {
+        if self.draft_state.is_none() {
+            return Err(io::Error::new(io::ErrorKind::NotFound, "Draft hasn't started yet"));
+        }
+        self.draft_state.as_mut().unwrap().pick(player_id, picked_item_id)?;
+        self.check_listeners();
+        Ok(())
+    }
+
+    pub fn get_current_pack_contents_for_player(&self, player_id: &PlayerId) -> Option<&PackContents> {
+        if self.draft_state.is_none() {
+            return None;
+        }
+        let pack_id = self.get_player_draft_state(player_id)
+            .map(|player_state| player_state.pending_packs.front())
+            .flatten();
+        if pack_id.is_none() {
+            return None;
+        }
+        self.draft_state.as_ref()
+            .map(|d| d.get_pack_contents(pack_id.unwrap()))
+            .flatten()
     }
 
     fn generate_player_id(&self) -> PlayerId {
@@ -100,14 +179,51 @@ impl DraftLobby {
         for (player_id, random_pick) in picks_to_make {
             draft_state.pick(player_id, random_pick)?;
         }
+        self.check_listeners();
         Ok(())
+    }
+
+    fn check_listeners(&mut self) {
+        let current_states: Vec<(PlayerId, u64)> = self.listeners.keys()
+            .map(|&player_id| (player_id, self.compute_state(&player_id)))
+            .collect();
+
+        for (player_id, current_state) in current_states {
+            let listener_list = self.listeners.get_mut(&player_id).unwrap();
+            for listener in listener_list.iter_mut() {
+                if listener.game_state != current_state {
+                    listener.flush();
+                }
+            }
+            listener_list.retain(|listener| listener.game_state == current_state);
+        }
+        // for each player_id, list<listener> pair:
+        //  compute the state for that player id
+        //  for each item in the list of listeners:
+        //    check to see if the state matches. if it doesn't then remove the item from the list
+        //    and complete the future
+    }
+
+    pub fn compute_state(&self, player_id: &PlayerId) -> u64 {
+        let num_players = self.joined_players.len() as u64;
+        if !self.draft_has_started() {
+            return num_players * 1024 * 1024;
+        }
+        let player_data = self.draft_state.as_ref().unwrap().players.get(player_id);
+        if player_data.is_none() {
+            return 0;
+        }
+        let player_data = player_data.unwrap();
+        let has_pending_packs = !player_data.pending_packs.is_empty() as u64;
+        let num_drafted_so_far = player_data.allocated_items.len() as u64;
+        return num_drafted_so_far + 1024 * has_pending_packs + 1024 * 1024 * num_players
     }
 }
 
 pub fn make_random_packs(num_packs: usize, pack_size: usize, item_list: &Vec<DraftItemId>) -> io::Result<Vec<PackContents>> {
-    let num_items_required = num_packs * pack_size;
-    if num_items_required > item_list.len() {
-        return Err(io::Error::new(io::ErrorKind::InvalidInput, format!("Requested number of packs: {}. Number of unique items: {}", num_items_required, item_list.len())));
+    let num_unique_items_required = num_packs * pack_size;
+    if num_unique_items_required > item_list.len() {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, format!("Requested number of packs: {}. Number of unique items: {}", num_unique_items_required, item_list.len())));
     }
     let mut item_indices: Vec<usize> = (0..item_list.len()).collect();
     rand::thread_rng().shuffle(&mut item_indices);
@@ -118,10 +234,11 @@ pub fn make_random_packs(num_packs: usize, pack_size: usize, item_list: &Vec<Dra
         let mut current_pack = vec!();
         for _ in 0..pack_size {
             let &idx = item_indices.get(i).unwrap();
-            let pack_item = item_list.get(idx).unwrap();
+            let &pack_item = item_list.get(idx).unwrap();
             current_pack.push(pack_item);
             i += 1;
         }
+        completed_packs.push(current_pack);
     }
 
     Ok(completed_packs)
@@ -130,7 +247,7 @@ pub fn make_random_packs(num_packs: usize, pack_size: usize, item_list: &Vec<Dra
 pub fn get_rounds_and_pack_sizes(num_players: usize) -> (usize, usize) {
     // need 96 unique sets
     // max capacity: 6 players
-    let (num_rounds, num_packs) = match num_players {
+    let (num_rounds, pack_size) = match num_players {
         0 => (0, 0),
         1 => (1, 6),
         2 => (4, 4),
@@ -138,7 +255,7 @@ pub fn get_rounds_and_pack_sizes(num_players: usize) -> (usize, usize) {
         5..=6 => (2, 8),
         _ => (0, 0)
     };
-    return (num_rounds, num_packs);
+    return (num_rounds, pack_size);
 }
 
 
@@ -186,7 +303,11 @@ impl DraftState {
         let mut selected_pack = self.packs_by_round
             .get_mut(self.current_round_idx).unwrap()
             .get_mut(pack_id).unwrap();
-        let picked_item_idx = selected_pack.iter().position(|x| x == &picked_item_id).unwrap();
+        let picked_item_idx = selected_pack.iter().position(|x| x == &picked_item_id);
+        if picked_item_idx.is_none() {
+            return Err(io::Error::new(io::ErrorKind::NotFound, "Couldn't find item in pack"));
+        }
+        let picked_item_idx = picked_item_idx.unwrap();
 
         player_state.allocated_items.push(picked_item_id);
         let pack_id = player_state.pending_packs.pop_front().unwrap();
@@ -235,6 +356,12 @@ impl DraftState {
 
     pub fn rounds_remaining(&self) -> usize {
         return self.num_rounds() - (self.current_round_idx + 1);
+    }
+
+    pub fn get_pack_contents(&self, pack_id: &PackId) -> Option<&PackContents> {
+        self.packs_by_round.get(self.current_round_idx)
+            .map(|r| r.get(pack_id))
+            .flatten()
     }
 
     fn set_initial_round_packs(&mut self) -> io::Result<()> {

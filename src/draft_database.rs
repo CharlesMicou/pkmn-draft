@@ -25,8 +25,11 @@ impl DraftDatabase {
     pub fn from_folder(dir_name: &str) -> io::Result<DraftDatabase> {
         let path = Path::new(dir_name);
         let mut items: HashMap<DraftItemId, DraftItem> = HashMap::new();
+        let mut i = 0;
         for file in fs::read_dir(path)? {
             //println!("{}", file.unwrap().path().display());
+            items.insert(i, DraftItem{foo: format!("dummy item {i}")});
+            i += 1;
         };
         let id_list: Vec<DraftItemId> = items.keys().copied().collect();
         Ok(DraftDatabase {

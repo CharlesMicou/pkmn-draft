@@ -12,7 +12,7 @@ use std::collections::HashMap;
 use simple_logger::SimpleLogger;
 use log::{info, warn, error};
 use std::future::IntoFuture;
-use crate::lobby_manager::LobbyManagerResponse;
+use crate::lobby_manager::{LobbyManagerResponse, LobbyStateForPlayer};
 
 
 fn make_new_draft_response(lobby_id: u64) -> warp::reply::Response {
@@ -90,6 +90,9 @@ async fn post_playername(mpsc_tx: tokio::sync::mpsc::Sender<lobby_manager::Lobby
         return Ok(StatusCode::BAD_REQUEST.into_response());
     }
     let player_name = player_name.unwrap();
+    if player_name.is_empty() || !player_name.is_ascii() || player_name.len() > 20 {
+        return Ok(StatusCode::BAD_REQUEST.into_response());
+    }
 
     let (tx, rx) = tokio::sync::oneshot::channel();
     let request = lobby_manager::LobbyManagerTask {
@@ -115,7 +118,7 @@ async fn post_playername(mpsc_tx: tokio::sync::mpsc::Sender<lobby_manager::Lobby
                 log::warn!("Returning LobbyErrorMsg {e} to end-client");
                 Ok(warp::reply::html(e.to_string()).into_response())
             }
-            LobbyManagerResponse::LobbyJoined{lobby_id, player_id} => Ok(make_redirect_to_game_response(lobby_id, player_id)),
+            LobbyManagerResponse::LobbyJoined { lobby_id, player_id } => Ok(make_redirect_to_game_response(lobby_id, player_id)),
             _ => {
                 log::error!("Unexpected task response for JoinLobby");
                 Ok(warp::reply::html("foo").into_response())
@@ -128,24 +131,120 @@ async fn post_playername(mpsc_tx: tokio::sync::mpsc::Sender<lobby_manager::Lobby
     }
 }
 
-async fn draft_page() -> Result<impl warp::Reply, std::convert::Infallible> {
+async fn get_draft_page(mpsc_tx: tokio::sync::mpsc::Sender<lobby_manager::LobbyManagerTask>, lobby_id: u64, player_id: u64) -> Result<warp::reply::Response, std::convert::Infallible> {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    let request = lobby_manager::LobbyManagerTask {
+        request: lobby_manager::LobbyManagerRequest::GetLobbyState {lobby_id, player_id},
+        response_channel: tx,
+    };
+
+    match mpsc_tx.send(request).await {
+        Ok(_) => (),
+        Err(e) => {
+            log::error!("Failed to enqueue task: {e}");
+            return Ok(StatusCode::INTERNAL_SERVER_ERROR.into_response());
+        }
+    };
+
+    let f = rx.into_future();
+
+    let lobby_state: LobbyStateForPlayer = match f.await {
+        Ok(response) => match response {
+            LobbyManagerResponse::LobbyErrorMsg(e) => {
+                log::warn!("Returning LobbyErrorMsg {e} to end-client");
+                return Ok(warp::reply::html(e.to_string()).into_response());
+            }
+            LobbyManagerResponse::LobbyState(state) => state,
+            _ => {
+                log::error!("Unexpected task response for GetLobbyState");
+                return Ok(StatusCode::INTERNAL_SERVER_ERROR.into_response());
+            }
+        },
+        Err(e) => {
+            log::error!("Didn't receive task response: {e}");
+            return Ok(StatusCode::INTERNAL_SERVER_ERROR.into_response());
+        }
+    };
+
+    log::info!("{lobby_state:?}");
+
     let mut handlebars = handlebars::Handlebars::new();
     handlebars.register_template_file("template", "www/draft_template.html").unwrap();
 
     let mut data = serde_json::Map::new();
-    data.insert("lobby_id".to_string(), handlebars::to_json(123));
-    data.insert("player_id".to_string(), handlebars::to_json(456));
-    data.insert("url_for_draft".to_string(), handlebars::to_json("http://localhost:3030/test_post"));
+
+    // hack to get this templating right
+    let mut pickable_items: Vec<HashMap<String, String>> = vec![];
+    for (draft_item_id, template) in lobby_state.pending_picks {
+        let mut temp_map: HashMap<String, String> = HashMap::new();
+        temp_map.insert("pokepaste".to_string(), template);
+        temp_map.insert("draft_id".to_string(), draft_item_id.to_string());
+        pickable_items.push(temp_map)
+    }
+
+    data.insert("lobby_id".to_string(), handlebars::to_json(&lobby_state.lobby_id));
+    data.insert("player_id".to_string(), handlebars::to_json(&lobby_state.player_id));
+    data.insert("joining_players".to_string(), handlebars::to_json(&lobby_state.joining_players));
+    data.insert("open_slots".to_string(), handlebars::to_json(&lobby_state.open_slots));
+    data.insert("pending_picks".to_string(), handlebars::to_json(&pickable_items));
+    data.insert("allocated_picks".to_string(), handlebars::to_json(&lobby_state.allocated_picks));
+    data.insert("game_state".to_string(), handlebars::to_json(&lobby_state.game_state));
+    // todo: url needs to be draft/lobby_id/player_id (or just template it)
+    let target_url = format!("http://localhost:3030/draft/{lobby_id}/{player_id}");
+    data.insert("url_for_draft".to_string(), handlebars::to_json(&target_url));
+
 
     let render = handlebars.render("template", &data).unwrap();
-    Ok(warp::reply::html(render))
+    Ok(warp::reply::html(render).into_response())
+}
+
+async fn handle_draft_post(mpsc_tx: tokio::sync::mpsc::Sender<lobby_manager::LobbyManagerTask>, lobby_id: u64, player_id: u64, post_data: DraftPost) -> Result<impl warp::Reply, std::convert::Infallible> {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    let request = match post_data.command.as_str() {
+        "start_game" => lobby_manager::LobbyManagerRequest::StartLobby { lobby_id },
+        "pick" => lobby_manager::LobbyManagerRequest::MakePick { lobby_id, player_id, pick: post_data.pick_id },
+        "poll" => lobby_manager::LobbyManagerRequest::BlockForUpdate {lobby_id, player_id, game_state: post_data.game_state},
+        _ => return Ok(StatusCode::BAD_REQUEST.into_response()),
+    };
+    let task = lobby_manager::LobbyManagerTask { request, response_channel: tx };
+
+    match mpsc_tx.send(task).await {
+        Ok(_) => (),
+        Err(e) => {
+            log::error!("Failed to enqueue task: {e}");
+            return Ok(StatusCode::INTERNAL_SERVER_ERROR.into_response());
+        }
+    };
+
+    let f = rx.into_future();
+    match f.await {
+        Ok(response) => match response {
+            LobbyManagerResponse::LobbyErrorMsg(e) => {
+                log::warn!("Returning LobbyErrorMsg {e} to end-client");
+                Ok(warp::reply::html(e.to_string()).into_response())
+            }
+            LobbyManagerResponse::LobbyStarted => Ok(StatusCode::OK.into_response()),
+            LobbyManagerResponse::PickMade => Ok(StatusCode::OK.into_response()),
+            LobbyManagerResponse::UpdateReady => Ok(StatusCode::OK.into_response()),
+            _ => {
+                log::error!("Unexpected task response");
+                Ok(StatusCode::INTERNAL_SERVER_ERROR.into_response())
+            }
+        },
+        Err(e) => {
+            log::error!("Didn't receive task response: {e}");
+            Ok(StatusCode::INTERNAL_SERVER_ERROR.into_response())
+        }
+    }
 }
 
 #[derive(Deserialize, Serialize, Debug)]
-struct DummyPost {
+struct DraftPost {
+    command: String,
     lobby_id: u64,
     player_id: u64,
     pick_id: u64,
+    game_state: u64,
 }
 
 
@@ -174,49 +273,54 @@ async fn main() {
         }
     });
 
-    let clone_a = mpsc_tx.clone();
-    let mspc_tx_a = warp::any().map(move || clone_a.clone());
+    let temp_clone = mpsc_tx.clone();
+    let new_draft_tx = warp::any().map(move || temp_clone.clone());
 
-    let clone_b = mpsc_tx.clone();
-    let mspc_tx_b = warp::any().map(move || clone_b.clone());
+    let temp_clone = mpsc_tx.clone();
+    let join_draft_tx = warp::any().map(move || temp_clone.clone());
+
+    let temp_clone = mpsc_tx.clone();
+    let draft_route_tx = warp::any().map(move || temp_clone.clone());
+
+    let temp_clone = mpsc_tx.clone();
+    let draft_post_tx = warp::any().map(move || temp_clone.clone());
 
 
     let index_route = warp::path::end().and(warp::fs::file("www/static/index.html"));
     let static_route = warp::path("static").and(warp::fs::dir("www/static"));
-    let draft_route = warp::path("draft")
-        .and_then(draft_page);
+    let draft_route = warp::get()
+        .and(draft_route_tx)
+        .and(warp::path!("draft" / u64 / u64))
+        .and_then(get_draft_page);
+    let draft_route_post = warp::post()
+        .and(draft_post_tx)
+        .and(warp::path!("draft" / u64 / u64))
+        .and(warp::body::content_length_limit(1024 * 16))
+        .and(warp::body::json())
+        .and_then(handle_draft_post);
 
-    let new_draft_route = warp::get()
-        .and(mspc_tx_a)
+    let create_draft_route = warp::get()
+        .and(new_draft_tx)
         .and(warp::path("new_draft"))
         .and_then(new_draft);
     let join_draft_get_route = warp::get().and(warp::path!("join_draft" / u64))
         .and_then(join_draft_page);
     let join_draft_post_route = warp::post()
-        .and(mspc_tx_b)
+        .and(join_draft_tx)
         .and(warp::path!("join_draft" / u64))
         .and(warp::body::content_length_limit(1024 * 16))
         .and(warp::body::form())
         .and_then(post_playername);
 
 
-    let post_route = warp::post()
-        .and(warp::path("test_post"))
-        .and(warp::body::content_length_limit(1024 * 16))
-        .and(warp::body::json())
-        .map(|mut posted: DummyPost| {
-            log::info!("{:?}", posted);
-            warp::reply::json(&posted)
-        });
-
     let routes = warp::get()
         .and(index_route)
         .or(static_route)
-        .or(new_draft_route)
+        .or(create_draft_route)
         .or(draft_route)
+        .or(draft_route_post)
         .or(join_draft_get_route)
-        .or(join_draft_post_route)
-        .or(post_route);
+        .or(join_draft_post_route);
 
     let (_addr, warp_server) = warp::serve(routes).bind_with_graceful_shutdown(([127, 0, 0, 1], 3030), async {
         shutdown_rx.await.ok();
