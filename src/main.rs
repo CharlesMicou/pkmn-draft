@@ -21,8 +21,7 @@ fn make_new_draft_response(lobby_id: DraftLobbyId) -> warp::reply::Response {
     handlebars.register_template_file("template", "www/share_game_template.html").unwrap();
 
     let mut data = serde_json::Map::new();
-    let game_url = format!("http://localhost:3030/join_draft/{}", lobby_id);
-    data.insert("share_url".to_string(), handlebars::to_json(game_url));
+    data.insert("lobby_id".to_string(), handlebars::to_json(lobby_id));
 
     let render = handlebars.render("template", &data).unwrap();
     warp::reply::html(render).into_response()
@@ -31,7 +30,7 @@ fn make_new_draft_response(lobby_id: DraftLobbyId) -> warp::reply::Response {
 fn make_redirect_to_game_response(lobby_id: DraftLobbyId, player_id: PlayerId) -> warp::reply::Response {
     let body = format!(r#"
 <html>
-    <meta http-equiv="Refresh" content="0; url='http://localhost:3030/draft/{lobby_id}/{player_id}'" />
+    <meta http-equiv="Refresh" content="0; url='/draft/{lobby_id}/{player_id}'" />
 </html>
 "#);
     warp::reply::html(body).into_response()
@@ -73,15 +72,10 @@ async fn new_draft(mpsc_tx: tokio::sync::mpsc::Sender<lobby_manager::LobbyManage
     }
 }
 
-async fn join_draft_page(lobby_id: DraftLobbyId) -> Result<impl warp::Reply, std::convert::Infallible> {
+async fn join_draft_page(_lobby_id: DraftLobbyId) -> Result<impl warp::Reply, std::convert::Infallible> {
     let mut handlebars = handlebars::Handlebars::new();
     handlebars.register_template_file("template", "www/join_game_template.html").unwrap();
-
-    let mut data = serde_json::Map::new();
-    let url = format!("http://localhost:3030/join_draft/{}", lobby_id);
-    data.insert("url_to_submit".to_string(), handlebars::to_json(url));
-
-    let render = handlebars.render("template", &data).unwrap();
+    let render = handlebars.render("template", &serde_json::Map::new()).unwrap();
     Ok(warp::reply::html(render))
 }
 
@@ -194,11 +188,8 @@ async fn get_draft_page(mpsc_tx: tokio::sync::mpsc::Sender<lobby_manager::LobbyM
     data.insert("game_state".to_string(), handlebars::to_json(&lobby_state.game_state));
     data.insert("waiting_for_pack".to_string(), handlebars::to_json(waiting_for_pack));
     data.insert("time_left_s".to_string(), handlebars::to_json(&lobby_state.time_to_pick_s));
-    // todo: url needs to be draft/lobby_id/player_id (or just template it)
     data.insert("draft_order".to_string(), handlebars::to_json(&lobby_state.draft_order));
     data.insert("draft_is_finished".to_string(), handlebars::to_json(&lobby_state.draft_is_finished));
-    let target_url = format!("http://localhost:3030/draft/{lobby_id}/{player_id}");
-    data.insert("url_for_draft".to_string(), handlebars::to_json(&target_url));
 
 
     let render = handlebars.render("template", &data).unwrap();

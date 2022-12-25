@@ -107,7 +107,7 @@ function sendPick(pick_id) {
         pick_id: pick_id,
         game_state: {{game_state}},
     }
-    fetch("{{url_for_draft}}", {
+    fetch("", {
         method: "POST",
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(data)
@@ -124,7 +124,7 @@ function startGame() {
         pick_id: 0,
         game_state: {{game_state}},
     }
-    fetch("{{url_for_draft}}", {
+    fetch("", {
         method: "POST",
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(data)
@@ -141,7 +141,7 @@ function pollGame() {
         pick_id: 0,
         game_state: {{game_state}},
     }
-    fetch("{{url_for_draft}}", {
+    fetch("", {
         method: "POST",
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(data)

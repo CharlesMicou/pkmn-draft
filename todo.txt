@@ -1,4 +1,5 @@
 Refactor for days
-Fix url hardcoding
-Add css for pick/alloc blocks w/ margin for timer
 Add css to rest of website
+Host on digitalocean
+Host showdown
+Write main content
