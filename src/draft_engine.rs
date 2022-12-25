@@ -333,6 +333,23 @@ impl DraftLobby {
             .map(|s| s.draft_is_done())
             .unwrap_or(false)
     }
+
+    pub fn get_draft_progress_for_player(&self, player_id: &PlayerId) -> Option<(usize, usize, usize, usize)> {
+        if self.draft_state.is_none() {
+            return None;
+        }
+        let draft_state = self.draft_state.as_ref().unwrap();
+        if !draft_state.players.contains_key(player_id) {
+            return None;
+        }
+        let total_rounds = draft_state.num_rounds();
+        let current_round = draft_state.current_round_idx + 1;
+        let pack_size = draft_state.get_pack_size();
+        let pick_num = 1 + draft_state.players.get(player_id)
+            .map(|p| p.allocated_items.len() % pack_size)
+            .unwrap();
+        return Some((current_round, total_rounds, pick_num, pack_size))
+    }
 }
 
 pub fn make_random_packs(num_packs: usize, pack_size: usize, item_list: &Vec<DraftItemId>) -> io::Result<Vec<PackContents>> {
@@ -470,6 +487,11 @@ impl DraftState {
 
     pub fn rounds_remaining(&self) -> usize {
         return self.num_rounds() - (self.current_round_idx + 1);
+    }
+
+    pub fn get_pack_size(&self) -> usize {
+        let (_, pack_size) = get_rounds_and_pack_sizes(self.players.len());
+        pack_size
     }
 
     pub fn draft_is_done(&self) -> bool {

@@ -70,13 +70,6 @@ async fn new_draft(mpsc_tx: tokio::sync::mpsc::Sender<lobby_manager::LobbyManage
     }
 }
 
-async fn join_draft_page(_lobby_id: DraftLobbyId) -> Result<impl warp::Reply, std::convert::Infallible> {
-    let mut handlebars = handlebars::Handlebars::new();
-    handlebars.register_template_file("template", "www/join_game_template.html").unwrap();
-    let render = handlebars.render("template", &serde_json::Map::new()).unwrap();
-    Ok(warp::reply::html(render))
-}
-
 async fn post_playername(mpsc_tx: tokio::sync::mpsc::Sender<lobby_manager::LobbyManagerTask>, lobby_id: DraftLobbyId, simple_map: HashMap<String, String>) -> Result<warp::reply::Response, std::convert::Infallible> {
     let player_name = simple_map.get("player_name").cloned();
     if player_name.is_none() {
@@ -127,7 +120,7 @@ async fn post_playername(mpsc_tx: tokio::sync::mpsc::Sender<lobby_manager::Lobby
 async fn get_draft_page(mpsc_tx: tokio::sync::mpsc::Sender<lobby_manager::LobbyManagerTask>, lobby_id: DraftLobbyId, player_id: PlayerId) -> Result<warp::reply::Response, std::convert::Infallible> {
     let (tx, rx) = tokio::sync::oneshot::channel();
     let request = lobby_manager::LobbyManagerTask {
-        request: lobby_manager::LobbyManagerRequest::GetLobbyState {lobby_id, player_id},
+        request: lobby_manager::LobbyManagerRequest::GetLobbyState { lobby_id, player_id },
         response_channel: tx,
     };
 
@@ -176,6 +169,7 @@ async fn get_draft_page(mpsc_tx: tokio::sync::mpsc::Sender<lobby_manager::LobbyM
     }
 
     let waiting_for_pack: bool = !lobby_state.draft_is_finished && pickable_items.is_empty() && !lobby_state.allocated_picks.is_empty();
+    let (current_round, total_rounds, current_pick, pack_size) = &lobby_state.rounds_and_picks;
 
     data.insert("lobby_id".to_string(), handlebars::to_json(&lobby_state.lobby_id));
     data.insert("player_id".to_string(), handlebars::to_json(&lobby_state.player_id));
@@ -188,6 +182,11 @@ async fn get_draft_page(mpsc_tx: tokio::sync::mpsc::Sender<lobby_manager::LobbyM
     data.insert("time_left_s".to_string(), handlebars::to_json(&lobby_state.time_to_pick_s));
     data.insert("draft_order".to_string(), handlebars::to_json(&lobby_state.draft_order));
     data.insert("draft_is_finished".to_string(), handlebars::to_json(&lobby_state.draft_is_finished));
+    data.insert("current_round".to_string(), handlebars::to_json(current_round));
+    data.insert("total_rounds".to_string(), handlebars::to_json(total_rounds));
+    data.insert("current_pick".to_string(), handlebars::to_json(current_pick));
+    data.insert("pack_size".to_string(), handlebars::to_json(pack_size));
+    data.insert("raw_allocated_picks".to_string(), handlebars::to_json(&lobby_state.raw_picks));
 
 
     let render = handlebars.render("template", &data).unwrap();
@@ -199,7 +198,7 @@ async fn handle_draft_post(mpsc_tx: tokio::sync::mpsc::Sender<lobby_manager::Lob
     let request = match post_data.command.as_str() {
         "start_game" => lobby_manager::LobbyManagerRequest::StartLobby { lobby_id },
         "pick" => lobby_manager::LobbyManagerRequest::MakePick { lobby_id, player_id, pick: post_data.pick_id },
-        "poll" => lobby_manager::LobbyManagerRequest::BlockForUpdate {lobby_id, player_id, game_state: post_data.game_state},
+        "poll" => lobby_manager::LobbyManagerRequest::BlockForUpdate { lobby_id, player_id, game_state: post_data.game_state },
         _ => return Ok(StatusCode::BAD_REQUEST.into_response()),
     };
     let task = lobby_manager::LobbyManagerTask { request, response_channel: tx };
@@ -300,8 +299,9 @@ async fn main() {
         .and(new_draft_tx)
         .and(warp::path("new_draft"))
         .and_then(new_draft);
-    let join_draft_get_route = warp::get().and(warp::path!("join_draft" / DraftLobbyId))
-        .and_then(join_draft_page);
+    let join_draft_get_route = warp::get()
+        .and(warp::path("join_draft"))
+        .and(warp::fs::file("www/join_game_template.html"));
     let join_draft_post_route = warp::post()
         .and(join_draft_tx)
         .and(warp::path!("join_draft" / DraftLobbyId))

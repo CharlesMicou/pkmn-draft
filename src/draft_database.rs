@@ -6,12 +6,16 @@ use std::path::Path;
 use crate::draft_engine::DraftItemId;
 
 pub struct DraftItem {
-    raw_data: String,
+    raw_html: String,
+    simple_text: String,
 }
 
 impl DraftItem {
     pub fn get_template(&self) -> &String {
-        return &self.raw_data;
+        return &self.raw_html;
+    }
+    pub fn get_raw(&self) -> &String {
+        return &self.simple_text;
     }
 }
 
@@ -26,10 +30,10 @@ impl DraftDatabase {
         let mut items: HashMap<DraftItemId, DraftItem> = HashMap::new();
         let mut i = 0;
         for entry in fs::read_dir(path)? {
-            //println!("{}", file.unwrap().path().display());
-
-            let s = fs::read_to_string(entry?.path())?;
-            items.insert(i, DraftItem{ raw_data: s});
+            let entry_path = entry?.path();
+            let raw_html = fs::read_to_string(&entry_path)?;
+            let simple_text = html2text::from_read(fs::File::open(&entry_path)?, 999);
+            items.insert(i, DraftItem{ raw_html , simple_text});
             i += 1;
         };
         let id_list: Vec<DraftItemId> = items.keys().copied().collect();

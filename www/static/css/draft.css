@@ -10,7 +10,7 @@ body {
     display: flex;
     flex-flow: row wrap;
     justify-content: center;
-    background-color: #6e6e6e;
+    background-color: #919191;
     margin: 30px;
     padding: 0px;
     border-radius: 6px;
@@ -40,8 +40,8 @@ body {
 
 .start_game_button {
     background-color: #4CAF50;
-    border: none;
     color: white;
+    border: none;
     padding: 15px 32px;
     margin: 30px;
     text-align: center;
@@ -49,6 +49,12 @@ body {
     display: inline-block;
     font-size: 24px;
     border-radius: 6px;
+    transition-duration: 0.1s;
+}
+
+.start_game_button:hover {
+    background-color: #a4dea5;
+    color: white;
 }
 
 article.pokepaste {
@@ -114,6 +120,17 @@ pre {
     display: inline-block;
     font-size: 24px;
     border-radius: 6px;
+}
+
+.pick-button:hover {
+    background-color: #f6bd3b;
+    color: white;
+}
+
+.pick-button:active {
+    background-color: #f6bd3b;
+    color: white;
+    transform: translateY(4px);
 }
 
 .timer-bar {

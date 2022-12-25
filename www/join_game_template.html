@@ -3,17 +3,64 @@
 <head>
   <meta charset="UTF-8">
   <title>Join New Game</title>
+  <link rel="stylesheet" href="/static/css/main.css">
 </head>
-<body>
-This is the join game template.
 
+<style>
+  input[type=text], select {
+    width: 100%;
+    padding: 12px 20px;
+    margin: 8px 0;
+    display: inline-block;
+    border: 1px solid #ff0000;
+    border-radius: 4px;
+    box-sizing: border-box;
+    background-color: #b7b7b7;
+    font-size: 16pt;
+    text-align: center;
+  }
+
+  input[type=submit] {
+    width: 100%;
+    background-color: #4CAF50;
+    color: white;
+    padding: 14px 20px;
+    margin: 8px 0;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16pt;
+  }
+
+  input[type=submit]:hover {
+    background-color: #45a049;
+  }
+
+  div {
+    border-radius: 5px;
+    background-color: #6b6b6b;
+    padding: 10px;
+    margin: 0px;
+    align-content: center;
+    text-align: center;
+  }
+
+  form {
+    width: 50%;
+  }
+
+  label {
+    font-family: sans-serif;
+  }
+
+
+</style>
+
+<body>
 <form method="POST">
   <div>
-    <label for="player_name">Player Name</label>
-    <input name="player_name" id="player_name" value=""  minlength="1" maxlength="20" required/>
-  </div>
-  <div>
-    <button>Join Game</button>
+    <input type="text" name="player_name" id="player_name" value=""  minlength="1" maxlength="20" required placeholder="Your Name"/>
+    <input type="submit" value="Join Draft"></input>
   </div>
 </form>
 

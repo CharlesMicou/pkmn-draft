@@ -21,6 +21,8 @@ pub struct LobbyStateForPlayer {
     pub draft_is_finished: bool,
     pub time_to_pick_s: Option<u64>,
     pub draft_order: Vec<String>,
+    pub rounds_and_picks: (usize, usize, usize, usize),
+    pub raw_picks: Vec<String>,
 }
 
 pub enum LobbyManagerRequest {
@@ -30,7 +32,7 @@ pub enum LobbyManagerRequest {
     GetLobbyState { lobby_id: DraftLobbyId, player_id: PlayerId },
     MakePick { lobby_id: DraftLobbyId, player_id: PlayerId, pick: DraftItemId },
     BlockForUpdate { lobby_id: DraftLobbyId, player_id: PlayerId, game_state: GameState },
-    EnforceDeadline { lobby_id: DraftLobbyId, round_number: usize, pick_number: usize},
+    EnforceDeadline { lobby_id: DraftLobbyId, round_number: usize, pick_number: usize },
 }
 
 pub enum LobbyManagerResponse {
@@ -77,7 +79,7 @@ impl LobbyManager {
                 self.add_listener_for(lobby_id, player_id, game_state, task.response_channel);
                 continue;
             }
-            if let LobbyManagerRequest::EnforceDeadline {lobby_id, round_number, pick_number} = task.request {
+            if let LobbyManagerRequest::EnforceDeadline { lobby_id, round_number, pick_number } = task.request {
                 match self.enforce_deadline(lobby_id, round_number, pick_number) {
                     Ok(_) => {}
                     Err(e) => log::error!("Failed to enforce a lobby deadline: {e}")
@@ -192,11 +194,14 @@ impl LobbyManager {
             }
         };
 
-        let (pending_picks, allocated_picks) = match lobby.get_player_draft_state(&player_id) {
-            None => (vec![], vec![]),
+        let (pending_picks, allocated_picks, raw_picks) = match lobby.get_player_draft_state(&player_id) {
+            None => (vec![], vec![], vec![]),
             Some(state) => {
                 let allocated_picks: Vec<String> = state.allocated_items.iter()
                     .map(|pick_id| self.draft_database.get_item_by_id(&pick_id).unwrap().get_template().clone())
+                    .collect();
+                let raw_picks: Vec<String> = state.allocated_items.iter()
+                    .map(|pick_id| self.draft_database.get_item_by_id(&pick_id).unwrap().get_raw().clone())
                     .collect();
                 let pending_picks: Vec<(DraftItemId, String)> = match lobby.get_current_pack_contents_for_player(&player_id) {
                     Some(pack_contents) => {
@@ -208,7 +213,7 @@ impl LobbyManager {
                     }
                     None => vec![]
                 };
-                (pending_picks, allocated_picks)
+                (pending_picks, allocated_picks, raw_picks)
             }
         };
 
@@ -221,6 +226,8 @@ impl LobbyManager {
             .map(|remaining_time| remaining_time.as_secs());
 
         let draft_order = lobby.get_draft_order();
+        let rounds_and_picks = lobby.get_draft_progress_for_player(&player_id)
+            .unwrap_or((0, 0, 0, 0));
 
         return Ok(LobbyStateForPlayer {
             lobby_id,
@@ -233,6 +240,8 @@ impl LobbyManager {
             draft_is_finished,
             time_to_pick_s,
             draft_order,
+            rounds_and_picks,
+            raw_picks
         });
     }
 
@@ -272,7 +281,7 @@ impl LobbyManager {
         self.scheduling.schedule_with_delay(delay, move || {
             let (tx, _) = tokio::sync::oneshot::channel();
             let task = LobbyManagerTask {
-                request: LobbyManagerRequest::EnforceDeadline {lobby_id, round_number: deadline.round_number, pick_number: deadline.pick_number},
+                request: LobbyManagerRequest::EnforceDeadline { lobby_id, round_number: deadline.round_number, pick_number: deadline.pick_number },
                 response_channel: tx,
             };
             let result = channel.blocking_send(task);

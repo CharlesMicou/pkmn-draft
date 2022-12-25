@@ -15,3 +15,4 @@ simple_logger = {version = "4.0.0"}
 log = {version = "0.4.17"}
 timer = {version = "0.2.0"}
 chrono = {version = "0.4.23"}
+html2text = {version = "0.4.4"}

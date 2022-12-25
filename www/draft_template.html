@@ -41,27 +41,30 @@
 {{#if pending_picks}}
 <div class="timer-bar">
     <p id="timer"></p>
+    <p>&nbsp | &nbsp Round {{current_round}}/{{total_rounds}} - Pick {{current_pick}}/{{pack_size}} </p>
 </div>
 <script>
     const timer_seconds = {{time_left_s}};
-    var expiry_point = new Date().getTime() + timer_seconds * 1000;
+    let expiry_point = new Date().getTime() + timer_seconds * 1000;
 
-    var time_left = expiry_point - new Date().getTime();
-    var minutes = Math.floor((time_left % (1000 * 60 * 60)) / (1000 * 60));
-    var seconds = Math.floor((time_left % (1000 * 60)) / 1000);
-    document.getElementById("timer").innerHTML = "Time left: " + minutes + ":" + seconds;
-    var x = setInterval(function() {
-        var time_left = expiry_point - new Date().getTime();
-
+    function setTimeLeft() {
+        let time_left =  expiry_point - new Date().getTime();
+        let minutes = Math.floor((time_left % (1000 * 60 * 60)) / (1000 * 60));
+        let seconds = Math.floor((time_left % (1000 * 60)) / 1000);
         if (time_left < 0) {
-            clearInterval(x);
             document.getElementById("demo").innerHTML = "0:00";
-            return;
+            return true;
+        } else {
+            document.getElementById("timer").innerHTML = "Auto-pick in: " + minutes + ":" + seconds.toString().padStart(2, '0');
+            return false;
         }
+    }
 
-        var minutes = Math.floor((time_left % (1000 * 60 * 60)) / (1000 * 60));
-        var seconds = Math.floor((time_left % (1000 * 60)) / 1000);
-        document.getElementById("timer").innerHTML = "Time left: " + minutes + ":" + seconds.toString().padStart(2, '0');
+    setTimeLeft();
+    var timer = setInterval(function() {
+        if (setTimeLeft()) {
+            clearInterval(timer);
+        }
     }, 100);
 </script>
 <article class="pending_pick_container">
@@ -96,7 +99,11 @@
 {{/if}}
 
 {{#if draft_is_finished}}
-
+<pre>
+    {{#each raw_allocated_picks}}
+        {{this}}
+    {{/each}}
+</pre>
 {{else}}
 <script>
 function sendPick(pick_id) {

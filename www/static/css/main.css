@@ -1,0 +1,44 @@
+
+html {
+    max-width: 70ch;
+    padding: 3em 1em;
+    margin: auto;
+    line-height: 1.75;
+    font-size: 1.25em;
+}
+
+body {
+    margin: 0;
+    background-color: #262626;
+    color: white;
+}
+
+pre {
+    margin: 15px 15px 0;
+    font: 15px "M+ 1m", monospace;
+    white-space: pre-wrap;
+}
+
+h1,h2,h3,h4,h5,h6 {
+    margin: 3em 0 1em;
+}
+
+p,ul,ol {
+    margin-bottom: 2em;
+    color: white;
+    font-family: sans-serif;
+}
+
+a:link {
+    color: hotpink;
+}
+a:visited {
+    color: hotpink;
+}
+a:hover {
+    color: #75ff00;
+}
+a:active {
+    color: #8e8eff;
+}
+

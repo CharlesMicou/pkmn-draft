@@ -1,5 +1,4 @@
-Refactor for days
-Add css to rest of website
-Host on digitalocean
-Host showdown
-Write main content
+- Host pkmnsdn on droplet
+- Validate it's accessible over domain
+- Fix main page domain to point to showdown instance
+- rsync and profit?
