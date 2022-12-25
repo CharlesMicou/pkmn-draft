@@ -12,10 +12,11 @@ use std::collections::HashMap;
 use simple_logger::SimpleLogger;
 use log::{info, warn, error};
 use std::future::IntoFuture;
-use crate::lobby_manager::{LobbyManagerResponse, LobbyStateForPlayer};
+use crate::draft_engine::{DraftItemId, GameState, PlayerId};
+use crate::lobby_manager::{DraftLobbyId, LobbyManagerResponse, LobbyStateForPlayer};
 
 
-fn make_new_draft_response(lobby_id: u64) -> warp::reply::Response {
+fn make_new_draft_response(lobby_id: DraftLobbyId) -> warp::reply::Response {
     let mut handlebars = handlebars::Handlebars::new();
     handlebars.register_template_file("template", "www/share_game_template.html").unwrap();
 
@@ -27,7 +28,7 @@ fn make_new_draft_response(lobby_id: u64) -> warp::reply::Response {
     warp::reply::html(render).into_response()
 }
 
-fn make_redirect_to_game_response(lobby_id: u64, player_id: u64) -> warp::reply::Response {
+fn make_redirect_to_game_response(lobby_id: DraftLobbyId, player_id: PlayerId) -> warp::reply::Response {
     let body = format!(r#"
 <html>
     <meta http-equiv="Refresh" content="0; url='http://localhost:3030/draft/{lobby_id}/{player_id}'" />
@@ -72,19 +73,19 @@ async fn new_draft(mpsc_tx: tokio::sync::mpsc::Sender<lobby_manager::LobbyManage
     }
 }
 
-async fn join_draft_page(game_id: u64) -> Result<impl warp::Reply, std::convert::Infallible> {
+async fn join_draft_page(lobby_id: DraftLobbyId) -> Result<impl warp::Reply, std::convert::Infallible> {
     let mut handlebars = handlebars::Handlebars::new();
     handlebars.register_template_file("template", "www/join_game_template.html").unwrap();
 
     let mut data = serde_json::Map::new();
-    let url = format!("http://localhost:3030/join_draft/{}", game_id);
+    let url = format!("http://localhost:3030/join_draft/{}", lobby_id);
     data.insert("url_to_submit".to_string(), handlebars::to_json(url));
 
     let render = handlebars.render("template", &data).unwrap();
     Ok(warp::reply::html(render))
 }
 
-async fn post_playername(mpsc_tx: tokio::sync::mpsc::Sender<lobby_manager::LobbyManagerTask>, game_id: u64, simple_map: HashMap<String, String>) -> Result<warp::reply::Response, std::convert::Infallible> {
+async fn post_playername(mpsc_tx: tokio::sync::mpsc::Sender<lobby_manager::LobbyManagerTask>, lobby_id: DraftLobbyId, simple_map: HashMap<String, String>) -> Result<warp::reply::Response, std::convert::Infallible> {
     let player_name = simple_map.get("player_name").cloned();
     if player_name.is_none() {
         return Ok(StatusCode::BAD_REQUEST.into_response());
@@ -97,7 +98,7 @@ async fn post_playername(mpsc_tx: tokio::sync::mpsc::Sender<lobby_manager::Lobby
     let (tx, rx) = tokio::sync::oneshot::channel();
     let request = lobby_manager::LobbyManagerTask {
         request: lobby_manager::LobbyManagerRequest::JoinLobby {
-            lobby_id: game_id,
+            lobby_id,
             player_name,
         },
         response_channel: tx,
@@ -131,7 +132,7 @@ async fn post_playername(mpsc_tx: tokio::sync::mpsc::Sender<lobby_manager::Lobby
     }
 }
 
-async fn get_draft_page(mpsc_tx: tokio::sync::mpsc::Sender<lobby_manager::LobbyManagerTask>, lobby_id: u64, player_id: u64) -> Result<warp::reply::Response, std::convert::Infallible> {
+async fn get_draft_page(mpsc_tx: tokio::sync::mpsc::Sender<lobby_manager::LobbyManagerTask>, lobby_id: DraftLobbyId, player_id: PlayerId) -> Result<warp::reply::Response, std::convert::Infallible> {
     let (tx, rx) = tokio::sync::oneshot::channel();
     let request = lobby_manager::LobbyManagerTask {
         request: lobby_manager::LobbyManagerRequest::GetLobbyState {lobby_id, player_id},
@@ -166,7 +167,7 @@ async fn get_draft_page(mpsc_tx: tokio::sync::mpsc::Sender<lobby_manager::LobbyM
         }
     };
 
-    log::info!("{lobby_state:?}");
+    log::debug!("{lobby_state:?}");
 
     let mut handlebars = handlebars::Handlebars::new();
     handlebars.register_template_file("template", "www/draft_template.html").unwrap();
@@ -182,6 +183,8 @@ async fn get_draft_page(mpsc_tx: tokio::sync::mpsc::Sender<lobby_manager::LobbyM
         pickable_items.push(temp_map)
     }
 
+    let waiting_for_pack: bool = !lobby_state.draft_is_finished && pickable_items.is_empty() && !lobby_state.allocated_picks.is_empty();
+
     data.insert("lobby_id".to_string(), handlebars::to_json(&lobby_state.lobby_id));
     data.insert("player_id".to_string(), handlebars::to_json(&lobby_state.player_id));
     data.insert("joining_players".to_string(), handlebars::to_json(&lobby_state.joining_players));
@@ -189,7 +192,11 @@ async fn get_draft_page(mpsc_tx: tokio::sync::mpsc::Sender<lobby_manager::LobbyM
     data.insert("pending_picks".to_string(), handlebars::to_json(&pickable_items));
     data.insert("allocated_picks".to_string(), handlebars::to_json(&lobby_state.allocated_picks));
     data.insert("game_state".to_string(), handlebars::to_json(&lobby_state.game_state));
+    data.insert("waiting_for_pack".to_string(), handlebars::to_json(waiting_for_pack));
+    data.insert("time_left_s".to_string(), handlebars::to_json(&lobby_state.time_to_pick_s));
     // todo: url needs to be draft/lobby_id/player_id (or just template it)
+    data.insert("draft_order".to_string(), handlebars::to_json(&lobby_state.draft_order));
+    data.insert("draft_is_finished".to_string(), handlebars::to_json(&lobby_state.draft_is_finished));
     let target_url = format!("http://localhost:3030/draft/{lobby_id}/{player_id}");
     data.insert("url_for_draft".to_string(), handlebars::to_json(&target_url));
 
@@ -198,7 +205,7 @@ async fn get_draft_page(mpsc_tx: tokio::sync::mpsc::Sender<lobby_manager::LobbyM
     Ok(warp::reply::html(render).into_response())
 }
 
-async fn handle_draft_post(mpsc_tx: tokio::sync::mpsc::Sender<lobby_manager::LobbyManagerTask>, lobby_id: u64, player_id: u64, post_data: DraftPost) -> Result<impl warp::Reply, std::convert::Infallible> {
+async fn handle_draft_post(mpsc_tx: tokio::sync::mpsc::Sender<lobby_manager::LobbyManagerTask>, lobby_id: DraftLobbyId, player_id: PlayerId, post_data: DraftPost) -> Result<impl warp::Reply, std::convert::Infallible> {
     let (tx, rx) = tokio::sync::oneshot::channel();
     let request = match post_data.command.as_str() {
         "start_game" => lobby_manager::LobbyManagerRequest::StartLobby { lobby_id },
@@ -241,10 +248,10 @@ async fn handle_draft_post(mpsc_tx: tokio::sync::mpsc::Sender<lobby_manager::Lob
 #[derive(Deserialize, Serialize, Debug)]
 struct DraftPost {
     command: String,
-    lobby_id: u64,
-    player_id: u64,
-    pick_id: u64,
-    game_state: u64,
+    lobby_id: DraftLobbyId,
+    player_id: PlayerId,
+    pick_id: DraftItemId,
+    game_state: GameState,
 }
 
 
@@ -262,8 +269,9 @@ async fn main() {
 
 
     let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel();
-    let (mpsc_tx, mut mpsc_rx): (tokio::sync::mpsc::Sender<lobby_manager::LobbyManagerTask>, tokio::sync::mpsc::Receiver<lobby_manager::LobbyManagerTask>) = tokio::sync::mpsc::channel(1);
-    let mut lobby_manager = lobby_manager::LobbyManager::new(mpsc_rx, database);
+    let (mpsc_tx, mpsc_rx): (tokio::sync::mpsc::Sender<lobby_manager::LobbyManagerTask>, tokio::sync::mpsc::Receiver<lobby_manager::LobbyManagerTask>) = tokio::sync::mpsc::channel(1);
+    let lobby_manager_self_queue = mpsc_tx.clone();
+    let mut lobby_manager = lobby_manager::LobbyManager::new(mpsc_rx, lobby_manager_self_queue, database);
 
     let lobby_manager_thread = std::thread::spawn(move || {
         lobby_manager.run();
@@ -290,11 +298,11 @@ async fn main() {
     let static_route = warp::path("static").and(warp::fs::dir("www/static"));
     let draft_route = warp::get()
         .and(draft_route_tx)
-        .and(warp::path!("draft" / u64 / u64))
+        .and(warp::path!("draft" / DraftLobbyId / PlayerId))
         .and_then(get_draft_page);
     let draft_route_post = warp::post()
         .and(draft_post_tx)
-        .and(warp::path!("draft" / u64 / u64))
+        .and(warp::path!("draft" / DraftLobbyId / PlayerId))
         .and(warp::body::content_length_limit(1024 * 16))
         .and(warp::body::json())
         .and_then(handle_draft_post);
@@ -303,11 +311,11 @@ async fn main() {
         .and(new_draft_tx)
         .and(warp::path("new_draft"))
         .and_then(new_draft);
-    let join_draft_get_route = warp::get().and(warp::path!("join_draft" / u64))
+    let join_draft_get_route = warp::get().and(warp::path!("join_draft" / DraftLobbyId))
         .and_then(join_draft_page);
     let join_draft_post_route = warp::post()
         .and(join_draft_tx)
-        .and(warp::path!("join_draft" / u64))
+        .and(warp::path!("join_draft" / DraftLobbyId))
         .and(warp::body::content_length_limit(1024 * 16))
         .and(warp::body::form())
         .and_then(post_playername);

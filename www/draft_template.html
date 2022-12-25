@@ -2,45 +2,102 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <link rel="stylesheet" href="/static/css/draft.css">
     <title>Draft</title>
 </head>
 <body>
 
 {{#if joining_players}}
-<p>Joined players: </p>
-{{/if}}
+<article class="join_lobby_container">
+    <div class="mini_heading"><h1>Draft Lobby</h1> </div>
 
 {{#each joining_players}}
-<li>{{this}}</li>
+    <div class="joined_player"><h2>{{this}}</h2></div>
 {{/each}}
 
 {{#each open_slots}}
-<li>Open Slot</li>
+    <div class="open_slot"><h2>Open Slot</h2></div>
 {{/each}}
 
-{{#if joining_players}}
-<button type="button" onclick="startGame()">Start Game</button>
+<button type="button" class="start_game_button" onclick="startGame()">Start Game</button>
+</article>
+{{/if}}
+
+{{#if draft_is_finished}}
+<div style="text-align: center;"><h1>Draft Complete!</h1></div>
+{{else}}
+
+{{#if draft_order}}
+<article class="draft-order">
+<p>Draft order:</p>
+<p>
+{{#each draft_order}}
+    &nbsp {{this}} &nbsp &gt
+{{/each}}</p>
+</article>
+{{/if}}
 {{/if}}
 
 {{#if pending_picks}}
-<p>Pending picks: </p>
-{{/if}}
+<div class="timer-bar">
+    <p id="timer"></p>
+</div>
+<script>
+    const timer_seconds = {{time_left_s}};
+    var expiry_point = new Date().getTime() + timer_seconds * 1000;
+
+    var time_left = expiry_point - new Date().getTime();
+    var minutes = Math.floor((time_left % (1000 * 60 * 60)) / (1000 * 60));
+    var seconds = Math.floor((time_left % (1000 * 60)) / 1000);
+    document.getElementById("timer").innerHTML = "Time left: " + minutes + ":" + seconds;
+    var x = setInterval(function() {
+        var time_left = expiry_point - new Date().getTime();
+
+        if (time_left < 0) {
+            clearInterval(x);
+            document.getElementById("demo").innerHTML = "0:00";
+            return;
+        }
+
+        var minutes = Math.floor((time_left % (1000 * 60 * 60)) / (1000 * 60));
+        var seconds = Math.floor((time_left % (1000 * 60)) / 1000);
+        document.getElementById("timer").innerHTML = "Time left: " + minutes + ":" + seconds.toString().padStart(2, '0');
+    }, 100);
+</script>
+<article class="pending_pick_container">
+
+<div class="pending_picks_text"><h1>Next Pick</h1></div>
+
 {{#each pending_picks}}
-<article>
-{{this.pokepaste}}
-<button type="button" onclick="sendPick({{this.draft_id}})">Pick</button>
+<article class="pokepaste">
+{{{this.pokepaste}}}
+<button type="button" class="pick-button" onclick="sendPick({{this.draft_id}})">Pick</button>
 </article>
 {{/each}}
 
-{{#if allocated_picks}}
-<p>Allocated picks: </p>
+</article>
 {{/if}}
+
+{{#if waiting_for_pack}}
+<article class="waiting_container">
+    <div class="your_picks_text"><h1>Waiting for other players...</h1></div>
+</article>
+{{/if}}
+
+{{#if allocated_picks}}
+<article class="allocated_picks_container">
+<div class="your_picks_text"><h1>Your Picks</h1></div>
 {{#each allocated_picks}}
-<article>
+<article class="pokepaste">
 {{{this}}}
 </article>
 {{/each}}
+</article>
+{{/if}}
 
+{{#if draft_is_finished}}
+
+{{else}}
 <script>
 function sendPick(pick_id) {
     let data = {
@@ -93,9 +150,11 @@ function pollGame() {
         location.reload()
     });
 }
-pollGame()
 
+pollGame()
 </script>
+{{/if}}
+
 
 </body>
 </html>

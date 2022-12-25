@@ -38,7 +38,7 @@ if __name__ == '__main__':
                         image_path = x.attrs["src"]
                         if not check_image_exists(asset_dir, image_path):
                             print(f"Missing asset {image_path} for {pokemon_name} {image_type}")
-                        fixed_path = fix_image_path(image_path, "static/assets")
+                        fixed_path = fix_image_path(image_path, "/static/assets")
                         x.attrs["src"] = fixed_path
             draft_items.append(element)
 

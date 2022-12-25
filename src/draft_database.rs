@@ -6,13 +6,12 @@ use std::fs;
 use crate::draft_engine::DraftItemId;
 
 pub struct DraftItem {
-    foo: String,
-    // todo templating here
+    raw_data: String,
 }
 
 impl DraftItem {
     pub fn get_template(&self) -> &String {
-        return &self.foo;
+        return &self.raw_data;
     }
 }
 
@@ -26,9 +25,11 @@ impl DraftDatabase {
         let path = Path::new(dir_name);
         let mut items: HashMap<DraftItemId, DraftItem> = HashMap::new();
         let mut i = 0;
-        for file in fs::read_dir(path)? {
+        for entry in fs::read_dir(path)? {
             //println!("{}", file.unwrap().path().display());
-            items.insert(i, DraftItem{foo: format!("dummy item {i}")});
+
+            let s = fs::read_to_string(entry?.path())?;
+            items.insert(i, DraftItem{ raw_data: s});
             i += 1;
         };
         let id_list: Vec<DraftItemId> = items.keys().copied().collect();

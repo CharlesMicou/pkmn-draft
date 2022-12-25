@@ -1,0 +1,282 @@
+
+body {
+    margin: 0;
+    background-color: #262626;
+    color: white;
+    font: 12px "M+ 1c", sans-serif;
+}
+
+.join_lobby_container {
+    display: flex;
+    flex-flow: row wrap;
+    justify-content: center;
+    background-color: #6e6e6e;
+    margin: 30px;
+    padding: 0px;
+    border-radius: 6px;
+    width: 300px;
+    height: min-content;
+}
+
+.mini_heading {
+    width: 100%;
+    text-align: center;
+    padding: 0px;
+}
+
+.open_slot {
+    color: #ffb585;
+    width: 100%;
+    padding: 0px 30px;
+    font-family: sans-serif;
+}
+
+.joined_player {
+    color: #80f851;
+    width: 100%;
+    padding: 0px 30px;
+    font-family: sans-serif;
+}
+
+.start_game_button {
+    background-color: #4CAF50;
+    border: none;
+    color: white;
+    padding: 15px 32px;
+    margin: 30px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 24px;
+    border-radius: 6px;
+}
+
+article.pokepaste {
+    display: flex;
+    flex-flow: row wrap;
+    align-items: center;
+    background-color: black;
+    margin: 10px;
+    padding: 10px;
+    border-radius: 6px;
+    width: max-content;
+}
+
+article.draft-order {
+    display: flex;
+    align-items: center;
+    flex-flow: row wrap;
+    margin: 100px 30px 30px;
+    background-color: #746363;
+    color: white;
+    font: 18px "M+ 1c", monospace;
+    padding: 0px 10px 0px 10px;
+    border-radius: 6px;
+    width: max-content;
+}
+
+div.img {
+    position: relative;
+    margin: 15px;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+}
+
+img.img-pokemon {
+    width: 150px;
+    height: 150px;
+}
+
+img.img-item {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 40px;
+    height: 40px;
+}
+
+pre {
+    margin: 15px 15px 0;
+    font: 15px "M+ 1m", monospace;
+    white-space: pre-wrap;
+}
+
+.pick-button {
+    background-color: #4CAF50;
+    border: none;
+    color: white;
+    padding: 15px 32px;
+    margin: 30px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 24px;
+    border-radius: 6px;
+}
+
+.timer-bar {
+    background-color: #E82010;
+    height: min-content;
+    width: 100%;
+    position: fixed;
+    top: 0;
+    overflow: hidden;
+    align-items: center;
+    display: flex;
+    z-index: 99999;
+    color: white;
+    font: 24px "M+ 1m", monospace;
+    padding: 0px 20px;
+}
+
+.pending_pick_container {
+    display: flex;
+    flex-flow: row wrap;
+    justify-content: center;
+    background-color: #678d67;
+    margin: 30px;
+    padding: 2px;
+    border-radius: 6px;
+    width: 95%;
+    height: max-content;
+}
+
+.waiting_container {
+    display: flex;
+    flex-flow: row wrap;
+    justify-content: center;
+    background-color: #e39c59;
+    margin: 30px;
+    padding: 2px;
+    border-radius: 6px;
+    width: 95%;
+    height: max-content;
+}
+
+.allocated_picks_container {
+    display: flex;
+    flex-flow: row wrap;
+    justify-content: center;
+    background-color: #72678d;
+    margin: 30px;
+    padding: 2px;
+    border-radius: 6px;
+    width: 95%;
+    height: max-content;
+}
+
+.your_picks_text {
+    width: 100%;
+    text-align: center;
+    margin: 0;
+    padding: 0;
+}
+
+.pending_picks_text {
+    width: 100%;
+    text-align: center;
+    margin: 0;
+    padding: 0;
+}
+
+@media (max-width: 750px) {
+    aside {
+        display: none;
+    }
+}
+
+h1 {
+    font-size: 30pt;
+    font-family: sans-serif;
+}
+
+h2 {
+    font-size: 20pt;
+}
+
+
+.type-normal {
+    color: #A8A878
+}
+
+.type-fighting {
+    color: #C03028
+}
+
+.type-flying {
+    color: #A890F0
+}
+
+.type-poison {
+    color: #A040A0
+}
+
+.type-ground {
+    color: #E0C068
+}
+
+.type-rock {
+    color: #B8A038
+}
+
+.type-bug {
+    color: #A8B820
+}
+
+.type-ghost {
+    color: #705898
+}
+
+.type-steel {
+    color: #B8B8D0
+}
+
+.type-fire {
+    color: #F08030
+}
+
+.type-water {
+    color: #6890F0
+}
+
+.type-grass {
+    color: #78C850
+}
+
+.type-electric {
+    color: #F8D030
+}
+
+.type-psychic {
+    color: #F85888
+}
+
+.type-ice {
+    color: #98D8D8
+}
+
+.type-dragon {
+    color: #7038F8
+}
+
+.type-dark {
+    color: #705848
+}
+
+.type-fairy {
+    color: #EE99AC
+}
+
+.gender-m {
+    color: #0070F8
+}
+
+.gender-f {
+    color: #E82010
+}
+
+.attr {
+    color: #A0A0A0
+}

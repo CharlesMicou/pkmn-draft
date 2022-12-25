@@ -1,4 +1,5 @@
 /target
 /.idea
-/www/static/generated
+/www/static/assets
 /data/generated
+*.DS_Store
