@@ -1,10 +1,12 @@
-use std::io;
+extern crate rand;
+
 use std::collections::{HashMap, VecDeque};
-use std::io::ErrorKind;
-use rand::{RngCore, thread_rng, Rng};
+use std::io;
+
+use rand::{Rng, RngCore};
+
 use crate::{lobby_manager, LobbyManagerResponse};
 
-extern crate rand;
 
 pub type DraftItemId = u64;
 pub type PackId = u64;

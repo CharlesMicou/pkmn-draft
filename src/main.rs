@@ -1,20 +1,18 @@
-mod lobby_manager;
-mod draft_engine;
-mod draft_database;
+use std::collections::HashMap;
+use std::future::IntoFuture;
 
+use handlebars;
+use serde_derive::{Deserialize, Serialize};
+use simple_logger::SimpleLogger;
 use warp::{Filter, Reply};
 use warp::http::StatusCode;
-use handlebars;
-use serde::Serialize;
-use serde_json::json;
-use serde_derive::{Deserialize, Serialize};
-use std::collections::HashMap;
-use simple_logger::SimpleLogger;
-use log::{info, warn, error};
-use std::future::IntoFuture;
+
 use crate::draft_engine::{DraftItemId, GameState, PlayerId};
 use crate::lobby_manager::{DraftLobbyId, LobbyManagerResponse, LobbyStateForPlayer};
 
+mod lobby_manager;
+mod draft_engine;
+mod draft_database;
 
 fn make_new_draft_response(lobby_id: DraftLobbyId) -> warp::reply::Response {
     let mut handlebars = handlebars::Handlebars::new();
