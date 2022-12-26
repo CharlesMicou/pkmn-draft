@@ -15,7 +15,7 @@ pub type GameState = u64;
 pub type PackContents = Vec<DraftItemId>;
 pub type ResponseChannel = tokio::sync::oneshot::Sender<lobby_manager::LobbyManagerResponse>;
 
-pub const TIME_PER_PACK_ITEM_S: f64 = 8.0;
+pub const TIME_PER_PACK_ITEM_S: f64 = 25.0;
 pub const SLUSH_TIME_S: f64 = 2.0;
 
 pub struct UpdateListener {

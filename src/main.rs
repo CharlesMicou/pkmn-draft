@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 use std::future::IntoFuture;
+use std::env;
+use std::net::SocketAddr;
 
 use handlebars;
 use serde_derive::{Deserialize, Serialize};
@@ -250,9 +252,21 @@ async fn main() {
         .with_colors(true)
         .with_utc_timestamps()
         .env().init()
-
         .unwrap();
-    log::info!("Starting server on http://localhost:3030");
+
+    let configured_addr: SocketAddr = match env::var("PKMNDRAFT_PORT") {
+        Ok(val) => {
+            let parsed_port: u16 = val.trim().parse().unwrap();
+            log::info!("Starting server on port {parsed_port}");
+            SocketAddr::from(([0, 0, 0, 0], parsed_port))
+        },
+        Err(_) => {
+            log::info!("Starting server on http://localhost:3030");
+            SocketAddr::from(([127, 0, 0, 1], 3030))
+        }
+    };
+
+
     let database = draft_database::DraftDatabase::from_folder("data/generated").unwrap();
 
 
@@ -319,7 +333,7 @@ async fn main() {
         .or(join_draft_get_route)
         .or(join_draft_post_route);
 
-    let (_addr, warp_server) = warp::serve(routes).bind_with_graceful_shutdown(([127, 0, 0, 1], 3030), async {
+    let (_addr, warp_server) = warp::serve(routes).bind_with_graceful_shutdown(configured_addr, async {
         shutdown_rx.await.ok();
     });
 

@@ -1,4 +1,2 @@
-- Host pkmnsdn on droplet
-- Validate it's accessible over domain
-- Fix main page domain to point to showdown instance
+- Fix ports
 - rsync and profit?
