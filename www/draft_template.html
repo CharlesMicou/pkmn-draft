@@ -73,7 +73,7 @@
 
 {{#each pending_picks}}
 <article class="pokepaste">
-{{{this.pokepaste}}}
+{{{this.pokepaste}}} <div class="statcontainer">{{{this.pokestats}}}</div>
 <button type="button" class="pick-button" onclick="sendPick({{this.draft_id}})">Pick</button>
 </article>
 {{/each}}
@@ -92,7 +92,7 @@
 <div class="your_picks_text"><h1>Your Picks</h1></div>
 {{#each allocated_picks}}
 <article class="pokepaste">
-{{{this}}}
+    {{{this.pokepaste}}} <div class="statcontainer">{{{this.pokestats}}}</div>
 </article>
 {{/each}}
 </article>

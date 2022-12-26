@@ -163,14 +163,24 @@ async fn get_draft_page(mpsc_tx: tokio::sync::mpsc::Sender<lobby_manager::LobbyM
 
     // hack to get this templating right
     let mut pickable_items: Vec<HashMap<String, String>> = vec![];
-    for (draft_item_id, template) in lobby_state.pending_picks {
+    for (draft_item_id, template, stats) in lobby_state.pending_picks {
         let mut temp_map: HashMap<String, String> = HashMap::new();
         temp_map.insert("pokepaste".to_string(), template);
+        temp_map.insert("pokestats".to_string(), stats);
         temp_map.insert("draft_id".to_string(), draft_item_id.to_string());
         pickable_items.push(temp_map)
     }
 
     let waiting_for_pack: bool = !lobby_state.draft_is_finished && pickable_items.is_empty() && !lobby_state.allocated_picks.is_empty();
+
+    let mut allocated_items: Vec<HashMap<String, String>> = vec![];
+    for (template, stats) in lobby_state.allocated_picks {
+        let mut temp_map: HashMap<String, String> = HashMap::new();
+        temp_map.insert("pokepaste".to_string(), template);
+        temp_map.insert("pokestats".to_string(), stats);
+        allocated_items.push(temp_map)
+    }
+
     let (current_round, total_rounds, current_pick, pack_size) = &lobby_state.rounds_and_picks;
 
     data.insert("lobby_id".to_string(), handlebars::to_json(&lobby_state.lobby_id));
@@ -178,7 +188,7 @@ async fn get_draft_page(mpsc_tx: tokio::sync::mpsc::Sender<lobby_manager::LobbyM
     data.insert("joining_players".to_string(), handlebars::to_json(&lobby_state.joining_players));
     data.insert("open_slots".to_string(), handlebars::to_json(&lobby_state.open_slots));
     data.insert("pending_picks".to_string(), handlebars::to_json(&pickable_items));
-    data.insert("allocated_picks".to_string(), handlebars::to_json(&lobby_state.allocated_picks));
+    data.insert("allocated_picks".to_string(), handlebars::to_json(&allocated_items));
     data.insert("game_state".to_string(), handlebars::to_json(&lobby_state.game_state));
     data.insert("waiting_for_pack".to_string(), handlebars::to_json(waiting_for_pack));
     data.insert("time_left_s".to_string(), handlebars::to_json(&lobby_state.time_to_pick_s));
@@ -267,7 +277,7 @@ async fn main() {
     };
 
 
-    let database = draft_database::DraftDatabase::from_folder("data/generated").unwrap();
+    let database = draft_database::DraftDatabase::from_folder("data").unwrap();
 
 
     let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel();

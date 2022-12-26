@@ -109,6 +109,41 @@ pre {
     white-space: pre-wrap;
 }
 
+.statcontainer {
+    width: max-content;
+    background-color: #262626;
+    padding: 5px;
+    border-radius: 4px;
+}
+
+.statrow {
+    display: block;
+    height: 25px;
+    align-content: center;
+    vertical-align: middle;
+    width: max-content;
+}
+
+.statrow label {
+    font-family: monospace;
+    vertical-align: middle;
+    font-size: 14pt;
+    padding: 5px;
+}
+
+.statgraph {
+    float: left;
+    width: 75px;
+    height: 10px;
+}
+
+.statgraph span {
+    display: block;
+    margin: 3px;
+    height: 15px;
+    background: #ccc;
+}
+
 .pick-button {
     background-color: #4CAF50;
     border: none;

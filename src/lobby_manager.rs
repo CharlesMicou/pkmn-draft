@@ -15,8 +15,8 @@ pub struct LobbyStateForPlayer {
     pub player_id: PlayerId,
     pub joining_players: Vec<String>,
     pub open_slots: Vec<String>,
-    pub pending_picks: Vec<(DraftItemId, String)>,
-    pub allocated_picks: Vec<String>,
+    pub pending_picks: Vec<(DraftItemId, String, String)>,
+    pub allocated_picks: Vec<(String, String)>,
     pub game_state: GameState,
     pub draft_is_finished: bool,
     pub time_to_pick_s: Option<u64>,
@@ -197,17 +197,22 @@ impl LobbyManager {
         let (pending_picks, allocated_picks, raw_picks) = match lobby.get_player_draft_state(&player_id) {
             None => (vec![], vec![], vec![]),
             Some(state) => {
-                let allocated_picks: Vec<String> = state.allocated_items.iter()
-                    .map(|pick_id| self.draft_database.get_item_by_id(&pick_id).unwrap().get_template().clone())
+                let allocated_picks: Vec<(String, String)> = state.allocated_items.iter()
+                    .map(|pick_id| {
+                        let template = self.draft_database.get_item_by_id(&pick_id).unwrap().get_template().clone();
+                        let stats = self.draft_database.get_item_by_id(&pick_id).unwrap().get_stats().clone();
+                        (template, stats)
+                    })
                     .collect();
                 let raw_picks: Vec<String> = state.allocated_items.iter()
                     .map(|pick_id| self.draft_database.get_item_by_id(&pick_id).unwrap().get_raw().clone())
                     .collect();
-                let pending_picks: Vec<(DraftItemId, String)> = match lobby.get_current_pack_contents_for_player(&player_id) {
+                let pending_picks: Vec<(DraftItemId, String, String)> = match lobby.get_current_pack_contents_for_player(&player_id) {
                     Some(pack_contents) => {
-                        let mut v: Vec<(DraftItemId, String)> = Vec::new();
+                        let mut v: Vec<(DraftItemId, String, String)> = Vec::new();
                         for &item_id in pack_contents.iter() {
-                            v.push((item_id, self.draft_database.get_item_by_id(&item_id).unwrap().get_template().clone()))
+                            v.push((item_id, self.draft_database.get_item_by_id(&item_id).unwrap().get_template().clone(),
+                                    self.draft_database.get_item_by_id(&item_id).unwrap().get_stats().clone()))
                         }
                         v
                     }
