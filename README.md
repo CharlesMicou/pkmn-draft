@@ -9,7 +9,8 @@ hackathon-grade nonsense.
 ### The draft server
 
 The draft server is a rust application that lives in `src`. You can run it by running
-`cargo run`.
+`cargo run`. Setting the environment variable `PKMNDRAFT_PORT` will run the server on 0.0.0.0:PORT instead
+of `localhost`.
 
 `main.rs` does the following:
 
