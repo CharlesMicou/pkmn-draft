@@ -1,8 +1,5 @@
 /target
 /.idea
 /www/static/assets
-/data/generated
-/data/generated_raw
-/data/generated_stats
 *.DS_Store
 /tmp
