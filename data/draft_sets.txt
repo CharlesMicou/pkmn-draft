@@ -186,7 +186,6 @@ Adamant Nature
 
 Espeon @ Choice Specs
 Ability: Magic Bounce
-Tera Type: Psychic
 EVs: 4 HP / 252 SpA / 252 Spe
 Timid Nature
 - Psychic
@@ -252,7 +251,6 @@ Modest Nature
 
 Duraludon @ Leftovers
 Ability: Light Metal
-Tera Type: Steel
 EVs: 252 HP / 4 Def / 252 SpA
 Modest Nature
 IVs: 0 Atk
@@ -317,7 +315,6 @@ Adamant Nature
 - Pursuit
 
 Indeedee (M) @ Choice Specs
-Tera Type: Psychic
 EVs: 252 SpA / 4 SpD / 252 Spe
 Timid Nature
 IVs: 0 Atk
@@ -486,7 +483,6 @@ IVs: 0 Atk
 
 Politoed @ Damp Rock
 Ability: Drizzle
-Tera Type: Water
 EVs: 248 HP / 252 Def / 8 SpD
 Bold Nature
 IVs: 0 Atk
@@ -713,7 +709,6 @@ IVs: 0 Atk
 
 Toxtricity @ Choice Specs
 Ability: Punk Rock
-Tera Type: Electric
 EVs: 252 SpA / 4 SpD / 252 Spe
 Modest Nature
 IVs: 0 Atk
@@ -893,7 +888,6 @@ Bold Nature
 - Giga Drain
 
 Snorlax @ Leftovers
-Tera Type: Normal
 EVs: 188 HP / 128 Def / 192 SpD
 Careful Nature
 - Curse
