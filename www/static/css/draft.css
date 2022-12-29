@@ -57,6 +57,30 @@ body {
     color: white;
 }
 
+.copy_button {
+    background-color: #e38a2d;
+    border: none;
+    color: white;
+    padding: 15px 32px;
+    margin: 30px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 24px;
+    border-radius: 6px;
+}
+
+.copy_button:hover {
+    background-color: #f6bd3b;
+    color: white;
+}
+
+.copy_button:active {
+    background-color: #f6bd3b;
+    color: white;
+    transform: translateY(4px);
+}
+
 article.pokepaste {
     display: flex;
     flex-flow: row wrap;

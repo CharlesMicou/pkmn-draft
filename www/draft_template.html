@@ -25,6 +25,22 @@
 
 {{#if draft_is_finished}}
 <div style="text-align: center;"><h1>Draft Complete!</h1></div>
+
+<div style="text-align: center;">
+    <button type="button" class="copy_button" id="team_copy_button" onclick="copyTeam()">Copy Picks to Clipboard</button>
+</div>
+<script>
+    function copyTeam() {
+        const team =`
+    {{#each raw_allocated_picks}}
+        {{this}}
+    {{/each}}
+    `;
+
+        navigator.clipboard.writeText(team)
+        document.getElementById("team_copy_button").innerText = "Copied!";
+    }
+</script>
 {{else}}
 
 {{#if draft_order}}
