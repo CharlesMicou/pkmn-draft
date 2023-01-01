@@ -25,11 +25,27 @@ async fn main() {
             let parsed_port: u16 = val.trim().parse().unwrap();
             log::info!("Starting server on port {parsed_port}");
             SocketAddr::from(([0, 0, 0, 0], parsed_port))
-        },
+        }
         Err(_) => {
             log::info!("Starting server on http://localhost:3030");
             SocketAddr::from(([127, 0, 0, 1], 3030))
         }
+    };
+
+    let cert_path: Option<String> = match env::var("HTTPS_CERT") {
+        Ok(val) => Some(val),
+        Err(_) => None
+    };
+    let key_path: Option<String> = match env::var("HTTPS_KEY") {
+        Ok(val) => Some(val),
+        Err(_) => None
+    };
+
+    let https_credentials = if cert_path.is_some() && key_path.is_some() {
+        log::info!("Found HTTPS credentials.");
+        Some((cert_path.unwrap(), key_path.unwrap()))
+    } else {
+        None
     };
 
 
@@ -48,8 +64,18 @@ async fn main() {
         }
     });
 
-    let webserver = routes::make_server(configured_addr, mpsc_tx, shutdown_rx);
-    tokio::task::spawn(webserver);
+    match https_credentials {
+        Some(credentials) => {
+            let webserver = routes::make_server_with_tls(configured_addr, credentials, mpsc_tx, shutdown_rx);
+            tokio::task::spawn(webserver);
+            let redirect_server = routes::make_https_redirect_server();
+            tokio::task::spawn(redirect_server);
+        },
+        None => {
+            let webserver = routes::make_server(configured_addr, mpsc_tx, shutdown_rx);
+            tokio::task::spawn(webserver);
+        }
+    };
 
     log::info!("Server Ready");
 

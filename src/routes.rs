@@ -1,5 +1,5 @@
 use warp::{Filter, Reply};
-use warp::http::StatusCode;
+use warp::http::{StatusCode, Uri};
 use std::collections::HashMap;
 use std::future::IntoFuture;
 use std::future::Future;
@@ -9,6 +9,66 @@ use serde_derive::{Deserialize, Serialize};
 
 use crate::draft_engine::{DraftItemId, GameState, PlayerId};
 use crate::lobby_manager::{DraftLobbyId, LobbyManagerRequest, LobbyManagerResponse, LobbyStateForPlayer, LobbyManagerTask};
+
+pub fn make_server_with_tls(configured_addr: SocketAddr,
+                            https_paths: (String, String),
+                            lobby_manager_task_queue: tokio::sync::mpsc::Sender<LobbyManagerTask>,
+                            shutdown_signal: tokio::sync::oneshot::Receiver<()>) -> impl Future<Output=()> {
+    let mspc_tx = warp::any().map(move || lobby_manager_task_queue.clone());
+
+    let index_route = warp::path::end().and(warp::fs::file("www/static/index.html"));
+    let static_route = warp::path("static").and(warp::fs::dir("www/static"));
+    let draft_route = warp::get()
+        .and(mspc_tx.clone())
+        .and(warp::path!("draft" / DraftLobbyId / PlayerId))
+        .and_then(get_draft_page);
+    let draft_route_post = warp::post()
+        .and(mspc_tx.clone())
+        .and(warp::path!("draft" / DraftLobbyId / PlayerId))
+        .and(warp::body::content_length_limit(1024 * 16))
+        .and(warp::body::json())
+        .and_then(handle_draft_post);
+
+    let create_draft_route = warp::get()
+        .and(mspc_tx.clone())
+        .and(warp::path("new_draft"))
+        .and_then(new_draft);
+    let join_draft_get_route = warp::get()
+        .and(warp::path("join_draft"))
+        .and(warp::fs::file("www/join_game_template.html"));
+    let join_draft_post_route = warp::post()
+        .and(mspc_tx.clone())
+        .and(warp::path!("join_draft" / DraftLobbyId))
+        .and(warp::body::content_length_limit(1024 * 16))
+        .and(warp::body::form())
+        .and_then(post_playername);
+
+
+    let routes = warp::get()
+        .and(index_route)
+        .or(static_route)
+        .or(create_draft_route)
+        .or(draft_route)
+        .or(draft_route_post)
+        .or(join_draft_get_route)
+        .or(join_draft_post_route);
+
+    let (cert, key) = https_paths;
+    let (_addr, warp_server) = warp::serve(routes)
+        .tls()
+        .cert_path(cert)
+        .key_path(key)
+        .bind_with_graceful_shutdown(configured_addr, async {
+            shutdown_signal.await.ok();
+        });
+    warp_server
+}
+
+pub fn make_https_redirect_server() -> impl Future<Output=()> {
+    let http_route = warp::any()
+        .map(|| warp::redirect(Uri::from_static("https://happylittleneurons.com")));
+    warp::serve(http_route).bind(([0, 0, 0, 0], 80))
+}
 
 pub fn make_server(configured_addr: SocketAddr,
                    lobby_manager_task_queue: tokio::sync::mpsc::Sender<LobbyManagerTask>,
@@ -52,11 +112,11 @@ pub fn make_server(configured_addr: SocketAddr,
         .or(join_draft_get_route)
         .or(join_draft_post_route);
 
+
     let (_addr, warp_server) = warp::serve(routes)
         .bind_with_graceful_shutdown(configured_addr, async {
             shutdown_signal.await.ok();
         });
-
     warp_server
 }
 
