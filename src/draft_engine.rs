@@ -3,6 +3,7 @@ extern crate rand;
 use std::collections::{HashMap, VecDeque};
 use std::io;
 
+use rand::RngCore;
 use rand::seq::SliceRandom;
 
 use crate::{lobby_manager, LobbyManagerResponse};
