@@ -3,7 +3,7 @@ extern crate rand;
 use std::collections::{HashMap, VecDeque};
 use std::io;
 
-use rand::{Rng, RngCore};
+use rand::seq::SliceRandom;
 
 use crate::{lobby_manager, LobbyManagerResponse};
 
@@ -358,7 +358,8 @@ pub fn make_random_packs(num_packs: usize, pack_size: usize, item_list: &Vec<Dra
         return Err(io::Error::new(io::ErrorKind::InvalidInput, format!("Requested number of packs: {}. Number of unique items: {}", num_unique_items_required, item_list.len())));
     }
     let mut item_indices: Vec<usize> = (0..item_list.len()).collect();
-    rand::thread_rng().shuffle(&mut item_indices);
+    item_indices.shuffle(&mut rand::thread_rng());
+
 
     let mut completed_packs = vec!();
     let mut i = 0;

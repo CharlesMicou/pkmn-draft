@@ -1,25 +1,21 @@
 import sys
 import os
 
+"""
+Strips those pesky tera types
+"""
 if __name__ == '__main__':
-	if len(sys.argv) != 3:
-		print("Usage: draft_parser.py <path to draft_sets> <output_dir>")
+	if len(sys.argv) != 2:
+		print("Usage: draft_parser.py <path to draft_sets>")
 	draft_file = sys.argv[1]
-	output_dir = sys.argv[2]
 
 	current_data = []
 	i = 0
-	with open(draft_file) as f:
-		for line in f:
-			if len(line.strip()) == 0:
-				with open(f"{output_dir}/{i}.txt", 'w') as w:
-					w.writelines(current_data)
-				current_data.clear()
-				i += 1
-			else:
-				current_data.append(line)
-		with open(f"{output_dir}/{i}.txt", 'w') as w:
-			w.writelines(current_data)
+	with open(draft_file, "r+") as f:
+		lines = f.readlines()
+		f.seek(0)
+		for line in lines:
+			if "Tera Type" not in line:
+				f.write(line)
+		f.truncate()
 				
-
-

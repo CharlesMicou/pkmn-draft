@@ -160,7 +160,10 @@ impl LobbyManager {
 
     fn start_lobby(&mut self, lobby_id: DraftLobbyId) -> LobbyManagerResponse {
         let start = match self.active_lobbies.get_mut(&lobby_id) {
-            Some(lobby) => lobby.start(self.draft_database.get_item_list()),
+            Some(lobby) => {
+                let draft_set = self.draft_database.get_item_list();
+                lobby.start(&draft_set)
+            },
             None => Err(io::Error::new(io::ErrorKind::NotFound, "Lobby not found"))
         };
         match start {

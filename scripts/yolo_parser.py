@@ -16,6 +16,9 @@ def make_template_entrypoint():
     template_entrypoint.string = "{{{template_entrypoint}}}"
     return template_entrypoint
 
+"""
+This operates on the <div class="teamchartbox"> content of teambuilder
+"""
 if __name__ == '__main__':
     if len(sys.argv) != 3:
         print("Usage: pokepaste_parser.py <path to html file> <path to assets dir> <output_dir>")

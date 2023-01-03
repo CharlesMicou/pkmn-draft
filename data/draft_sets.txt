@@ -1,8 +1,8 @@
 Vaporeon @ Leftovers
 Ability: Water Absorb
 EVs: 252 HP / 228 Def / 28 SpD
-IVs: 0 Atk
 Bold Nature
+IVs: 0 Atk
 - Scald
 - Heal Bell
 - Protect
@@ -11,8 +11,8 @@ Bold Nature
 Dragapult @ Choice Specs
 Ability: Infiltrator
 EVs: 4 HP / 252 SpA / 252 Spe
-IVs: 0 Atk
 Timid Nature
+IVs: 0 Atk
 - U-turn
 - Shadow Ball
 - Draco Meteor
@@ -21,8 +21,8 @@ Timid Nature
 Chansey @ Eviolite
 Ability: Natural Cure
 EVs: 252 HP / 252 Def / 4 SpD
-IVs: 0 Atk
 Bold Nature
+IVs: 0 Atk
 - Seismic Toss
 - Toxic
 - Soft-Boiled
@@ -31,8 +31,8 @@ Bold Nature
 Torkoal @ Heat Rock
 Ability: Drought
 EVs: 248 HP / 252 Def / 8 SpD
-IVs: 0 Atk
 Bold Nature
+IVs: 0 Atk
 - Stealth Rock
 - Lava Plume
 - Rapid Spin
@@ -41,8 +41,8 @@ Bold Nature
 Ninetales @ Heat Rock
 Ability: Drought
 EVs: 252 SpA / 4 SpD / 252 Spe
-IVs: 0 Atk
 Timid Nature
+IVs: 0 Atk
 - Fire Blast
 - Solar Beam
 - Nasty Plot
@@ -51,8 +51,8 @@ Timid Nature
 Venusaur @ Life Orb
 Ability: Chlorophyll
 EVs: 252 SpA / 4 SpD / 252 Spe
-IVs: 0 Atk
 Modest Nature
+IVs: 0 Atk
 - Growth
 - Giga Drain
 - Weather Ball
@@ -61,8 +61,8 @@ Modest Nature
 Chandelure @ Choice Scarf
 Ability: Flash Fire
 EVs: 4 Def / 252 SpA / 252 Spe
-IVs: 0 Atk
 Timid Nature
+IVs: 0 Atk
 - Shadow Ball
 - Fire Blast
 - Trick
@@ -71,8 +71,8 @@ Timid Nature
 Nidoking @ Life Orb
 Ability: Sheer Force
 EVs: 252 SpA / 4 SpD / 252 Spe
-IVs: 0 Atk
 Modest Nature
+IVs: 0 Atk
 - Sludge Wave
 - Earth Power
 - Fire Blast
@@ -81,8 +81,8 @@ Modest Nature
 Hatterene @ Leftovers
 Ability: Magic Bounce
 EVs: 252 HP / 244 Def / 12 Spe
-IVs: 0 Atk
 Bold Nature
+IVs: 0 Atk
 - Calm Mind
 - Draining Kiss
 - Psyshock
@@ -125,7 +125,7 @@ IVs: 0 Atk
 - Roost
 - Defog
 - Flamethrower
-- Dragon Pulse
+- Solar Beam
 
 Roserade @ Rocky Helmet
 Ability: Natural Cure
@@ -1174,3 +1174,30 @@ Bold Nature
 - Scald
 - Haze
 - Toxic Spikes
+
+Garchomp @ Rocky Helmet
+Ability: Rough Skin
+EVs: 252 HP / 136 Def / 120 Spe
+Jolly Nature
+- Earthquake
+- Stealth Rock
+- Flamethrower
+- Toxic
+
+Garchomp @ Choice Scarf
+Ability: Rough Skin
+EVs: 252 Atk / 4 SpD / 252 Spe
+Adamant Nature
+- Earthquake
+- Poison Jab
+- Outrage
+- Fire Fang
+
+Garchomp @ Leftovers
+Ability: Rough Skin
+EVs: 252 Atk / 4 SpD / 252 Spe
+Jolly Nature
+- Earthquake
+- Swords Dance
+- Scale Shot
+- Fire Fang
