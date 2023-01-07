@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::future::IntoFuture;
 use std::future::Future;
 use std::net::SocketAddr;
+use std::sync::Arc;
 use handlebars;
 use serde_derive::{Deserialize, Serialize};
 
@@ -15,11 +16,17 @@ pub fn make_server_with_tls(configured_addr: SocketAddr,
                             lobby_manager_task_queue: tokio::sync::mpsc::Sender<LobbyManagerTask>,
                             shutdown_signal: tokio::sync::oneshot::Receiver<()>) -> impl Future<Output=()> {
     let mspc_tx = warp::any().map(move || lobby_manager_task_queue.clone());
+    let mut handlebars: handlebars::Handlebars = handlebars::Handlebars::new();
+    handlebars.register_template_file("draft_template", "www/draft_template.html").unwrap();
+    handlebars.register_template_file("share_game_template", "www/share_game_template.html").unwrap();
+    let handlebars = Arc::new(handlebars);
+    let handlebars = warp::any().map(move || handlebars.clone());
 
     let index_route = warp::path::end().and(warp::fs::file("www/static/index.html"));
     let static_route = warp::path("static").and(warp::fs::dir("www/static"));
     let draft_route = warp::get()
         .and(mspc_tx.clone())
+        .and(handlebars.clone())
         .and(warp::path!("draft" / DraftLobbyId / PlayerId))
         .and_then(get_draft_page);
     let draft_route_post = warp::post()
@@ -31,6 +38,7 @@ pub fn make_server_with_tls(configured_addr: SocketAddr,
 
     let create_draft_route = warp::get()
         .and(mspc_tx.clone())
+        .and(handlebars.clone())
         .and(warp::path("new_draft"))
         .and_then(new_draft);
     let join_draft_get_route = warp::get()
@@ -74,11 +82,17 @@ pub fn make_server(configured_addr: SocketAddr,
                    lobby_manager_task_queue: tokio::sync::mpsc::Sender<LobbyManagerTask>,
                    shutdown_signal: tokio::sync::oneshot::Receiver<()>) -> impl Future<Output=()> {
     let mspc_tx = warp::any().map(move || lobby_manager_task_queue.clone());
+    let mut handlebars = handlebars::Handlebars::new();
+    handlebars.register_template_file("draft_template", "www/draft_template.html").unwrap();
+    handlebars.register_template_file("share_game_template", "www/share_game_template.html").unwrap();
+    let handlebars = Arc::new(handlebars);
+    let handlebars = warp::any().map(move || handlebars.clone());
 
     let index_route = warp::path::end().and(warp::fs::file("www/static/index.html"));
     let static_route = warp::path("static").and(warp::fs::dir("www/static"));
     let draft_route = warp::get()
         .and(mspc_tx.clone())
+        .and(handlebars.clone())
         .and(warp::path!("draft" / DraftLobbyId / PlayerId))
         .and_then(get_draft_page);
     let draft_route_post = warp::post()
@@ -90,6 +104,7 @@ pub fn make_server(configured_addr: SocketAddr,
 
     let create_draft_route = warp::get()
         .and(mspc_tx.clone())
+        .and(handlebars.clone())
         .and(warp::path("new_draft"))
         .and_then(new_draft);
     let join_draft_get_route = warp::get()
@@ -120,14 +135,11 @@ pub fn make_server(configured_addr: SocketAddr,
     warp_server
 }
 
-fn make_new_draft_response(lobby_id: DraftLobbyId) -> warp::reply::Response {
-    let mut handlebars = handlebars::Handlebars::new();
-    handlebars.register_template_file("template", "www/share_game_template.html").unwrap();
-
+fn make_new_draft_response(handlebars: Arc<handlebars::Handlebars<'_>>, lobby_id: DraftLobbyId) -> warp::reply::Response {
     let mut data = serde_json::Map::new();
     data.insert("lobby_id".to_string(), handlebars::to_json(lobby_id));
 
-    let render = handlebars.render("template", &data).unwrap();
+    let render = handlebars.render("share_game_template", &data).unwrap();
     warp::reply::html(render).into_response()
 }
 
@@ -140,7 +152,7 @@ fn make_redirect_to_game_response(lobby_id: DraftLobbyId, player_id: PlayerId) -
     warp::reply::html(body).into_response()
 }
 
-async fn new_draft(mpsc_tx: tokio::sync::mpsc::Sender<LobbyManagerTask>) -> Result<warp::reply::Response, std::convert::Infallible> {
+async fn new_draft(mpsc_tx: tokio::sync::mpsc::Sender<LobbyManagerTask>, handlebars: Arc<handlebars::Handlebars<'_>>) -> Result<warp::reply::Response, std::convert::Infallible> {
     let (tx, rx) = tokio::sync::oneshot::channel();
     let request = LobbyManagerTask {
         request: LobbyManagerRequest::CreateLobby,
@@ -163,7 +175,7 @@ async fn new_draft(mpsc_tx: tokio::sync::mpsc::Sender<LobbyManagerTask>) -> Resu
                 log::warn!("Returning LobbyErrorMsg {e} to end-client");
                 Ok(warp::reply::html(e.to_string()).into_response())
             }
-            LobbyManagerResponse::LobbyCreated(id) => Ok(make_new_draft_response(id)),
+            LobbyManagerResponse::LobbyCreated(id) => Ok(make_new_draft_response(handlebars, id)),
             _ => {
                 log::error!("Unexpected task response for CreateLobby");
                 Ok(warp::reply::html("foo").into_response())
@@ -223,7 +235,7 @@ async fn post_playername(mpsc_tx: tokio::sync::mpsc::Sender<LobbyManagerTask>, l
     }
 }
 
-async fn get_draft_page(mpsc_tx: tokio::sync::mpsc::Sender<LobbyManagerTask>, lobby_id: DraftLobbyId, player_id: PlayerId) -> Result<warp::reply::Response, std::convert::Infallible> {
+async fn get_draft_page(mpsc_tx: tokio::sync::mpsc::Sender<LobbyManagerTask>, handlebars: Arc<handlebars::Handlebars<'_>>, lobby_id: DraftLobbyId, player_id: PlayerId) -> Result<warp::reply::Response, std::convert::Infallible> {
     let (tx, rx) = tokio::sync::oneshot::channel();
     let request = LobbyManagerTask {
         request: LobbyManagerRequest::GetLobbyState { lobby_id, player_id },
@@ -259,9 +271,6 @@ async fn get_draft_page(mpsc_tx: tokio::sync::mpsc::Sender<LobbyManagerTask>, lo
     };
 
     log::debug!("{lobby_state:?}");
-
-    let mut handlebars = handlebars::Handlebars::new();
-    handlebars.register_template_file("template", "www/draft_template.html").unwrap();
 
     let mut data = serde_json::Map::new();
 
@@ -304,8 +313,7 @@ async fn get_draft_page(mpsc_tx: tokio::sync::mpsc::Sender<LobbyManagerTask>, lo
     data.insert("pack_size".to_string(), handlebars::to_json(pack_size));
     data.insert("raw_allocated_picks".to_string(), handlebars::to_json(&lobby_state.raw_picks));
 
-
-    let render = handlebars.render("template", &data).unwrap();
+    let render = handlebars.render("draft_template", &data).unwrap();
     Ok(warp::reply::html(render).into_response())
 }
 
