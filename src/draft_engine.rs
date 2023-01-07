@@ -379,14 +379,15 @@ pub fn make_random_packs(num_packs: usize, pack_size: usize, item_list: &Vec<Dra
 }
 
 pub fn get_rounds_and_pack_sizes(num_players: usize) -> (usize, usize) {
-    // need 96 unique sets
     // max capacity: 6 players
     let (num_rounds, pack_size) = match num_players {
         0 => (0, 0),
         1 => (1, 6),
         2 => (3, 4),
-        3..=4 => (3, 6),
-        5..=6 => (2, 8),
+        3 => (2, 6),
+        4 => (2, 6),
+        5 => (2, 6),
+        6 => (2, 8),
         _ => (0, 0)
     };
     return (num_rounds, pack_size);

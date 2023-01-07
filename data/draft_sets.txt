@@ -1345,7 +1345,7 @@ IVs: 0 Atk
 - Earth Power
 
 Noivern @ Choice Specs
-Ability: Aerilate
+Ability: Infiltrator
 EVs: 252 SpA / 4 SpD / 252 Spe
 Timid Nature
 - Boomburst
