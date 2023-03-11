@@ -38,6 +38,7 @@ pub struct DraftState {
 }
 
 pub struct DraftLobby {
+    set_name: String,
     player_capacity: usize,
     draft_state: Option<DraftState>,
     joined_players: HashMap<PlayerId, String>,
@@ -69,8 +70,9 @@ impl UpdateListener {
 }
 
 impl DraftLobby {
-    pub fn new(player_capacity: usize) -> DraftLobby {
+    pub fn new(set_name: String, player_capacity: usize) -> DraftLobby {
         return DraftLobby {
+            set_name,
             player_capacity,
             draft_state: None,
             joined_players: HashMap::new(),
@@ -156,6 +158,10 @@ impl DraftLobby {
                 names
             }
             ).unwrap_or(vec![])
+    }
+
+    pub fn get_set(&self) -> &String {
+        &self.set_name
     }
 
     pub fn draft_has_started(&self) -> bool {

@@ -39,7 +39,7 @@ pub fn make_server_with_tls(configured_addr: SocketAddr,
     let create_draft_route = warp::get()
         .and(mspc_tx.clone())
         .and(handlebars.clone())
-        .and(warp::path("new_draft"))
+        .and(warp::path!("new_draft" / String ))
         .and_then(new_draft);
     let join_draft_get_route = warp::get()
         .and(warp::path("join_draft"))
@@ -105,7 +105,7 @@ pub fn make_server(configured_addr: SocketAddr,
     let create_draft_route = warp::get()
         .and(mspc_tx.clone())
         .and(handlebars.clone())
-        .and(warp::path("new_draft"))
+        .and(warp::path!("new_draft" / String ))
         .and_then(new_draft);
     let join_draft_get_route = warp::get()
         .and(warp::path("join_draft"))
@@ -152,10 +152,10 @@ fn make_redirect_to_game_response(lobby_id: DraftLobbyId, player_id: PlayerId) -
     warp::reply::html(body).into_response()
 }
 
-async fn new_draft(mpsc_tx: tokio::sync::mpsc::Sender<LobbyManagerTask>, handlebars: Arc<handlebars::Handlebars<'_>>) -> Result<warp::reply::Response, std::convert::Infallible> {
+async fn new_draft(mpsc_tx: tokio::sync::mpsc::Sender<LobbyManagerTask>, handlebars: Arc<handlebars::Handlebars<'_>>, set_name: String) -> Result<warp::reply::Response, std::convert::Infallible> {
     let (tx, rx) = tokio::sync::oneshot::channel();
     let request = LobbyManagerTask {
-        request: LobbyManagerRequest::CreateLobby,
+        request: LobbyManagerRequest::CreateLobby{set_name},
         response_channel: tx,
     };
 

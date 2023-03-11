@@ -49,7 +49,8 @@ async fn main() {
     };
 
 
-    let database = draft_database::DraftDatabase::from_folder("data").unwrap();
+    // let database = draft_database::DraftSet::from_folder("data/all_stars").unwrap();
+    let database = draft_database::DraftDb::from_folder("data").unwrap();
 
     let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel();
     let (mpsc_tx, mpsc_rx): (tokio::sync::mpsc::Sender<lobby_manager::LobbyManagerTask>, tokio::sync::mpsc::Receiver<lobby_manager::LobbyManagerTask>) = tokio::sync::mpsc::channel(1);

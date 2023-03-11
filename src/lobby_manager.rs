@@ -3,7 +3,7 @@ use std::io;
 
 use rand::{RngCore};
 
-use crate::draft_database::DraftDatabase;
+use crate::draft_database::DraftDb;
 use crate::draft_engine;
 use crate::draft_engine::{DraftDeadline, DraftItemId, GameState, PlayerId};
 
@@ -26,7 +26,7 @@ pub struct LobbyStateForPlayer {
 }
 
 pub enum LobbyManagerRequest {
-    CreateLobby,
+    CreateLobby { set_name: String },
     JoinLobby { lobby_id: DraftLobbyId, player_name: String },
     StartLobby { lobby_id: DraftLobbyId },
     GetLobbyState { lobby_id: DraftLobbyId, player_id: PlayerId },
@@ -53,7 +53,7 @@ pub struct LobbyManagerTask {
 const MAX_LOBBY_CAPACITY: usize = 6;
 
 pub struct LobbyManager {
-    draft_database: DraftDatabase,
+    draft_database: DraftDb,
     active_lobbies: HashMap<DraftLobbyId, draft_engine::DraftLobby>,
     task_queue: tokio::sync::mpsc::Receiver<LobbyManagerTask>,
     self_queue: tokio::sync::mpsc::Sender<LobbyManagerTask>,
@@ -63,7 +63,7 @@ pub struct LobbyManager {
 impl LobbyManager {
     pub fn new(task_queue: tokio::sync::mpsc::Receiver<LobbyManagerTask>,
                self_queue: tokio::sync::mpsc::Sender<LobbyManagerTask>,
-               draft_database: DraftDatabase) -> LobbyManager {
+               draft_database: DraftDb) -> LobbyManager {
         LobbyManager {
             draft_database,
             active_lobbies: HashMap::new(),
@@ -113,7 +113,10 @@ impl LobbyManager {
 
     fn process_request(&mut self, request: LobbyManagerRequest) -> LobbyManagerResponse {
         match request {
-            LobbyManagerRequest::CreateLobby => LobbyManagerResponse::LobbyCreated(self.create_lobby()),
+            LobbyManagerRequest::CreateLobby {set_name} => match self.create_lobby(set_name) {
+                Some(lobby_id) => LobbyManagerResponse::LobbyCreated(lobby_id),
+                None => LobbyManagerResponse::LobbyErrorMsg("Unknown draft set".to_string())
+            },
             LobbyManagerRequest::JoinLobby { lobby_id, player_name } => self.join_lobby(lobby_id, player_name),
             LobbyManagerRequest::StartLobby { lobby_id } => self.start_lobby(lobby_id),
             LobbyManagerRequest::GetLobbyState { lobby_id, player_id } => match self.get_lobby_state(lobby_id, player_id) {
@@ -128,11 +131,19 @@ impl LobbyManager {
         }
     }
 
-    fn create_lobby(&mut self) -> DraftLobbyId {
+    fn create_lobby(&mut self, set_name: String) -> Option<DraftLobbyId> {
         let lobby_id = self.generate_lobby_id();
-        log::info!("Creating lobby {lobby_id}");
-        self.active_lobbies.insert(lobby_id, draft_engine::DraftLobby::new(MAX_LOBBY_CAPACITY));
-        lobby_id
+        match self.draft_database.get_set(&set_name) {
+            Some(_) => {
+                log::info!("Creating lobby {lobby_id} for set {set_name}");
+                self.active_lobbies.insert(lobby_id, draft_engine::DraftLobby::new(set_name, MAX_LOBBY_CAPACITY));
+                Some(lobby_id)
+            },
+            None => {
+                log::error!("Got a request for unknown draft set {set_name}");
+                None
+            }
+        }
     }
 
     fn join_lobby(&mut self, lobby_id: DraftLobbyId, player_name: String) -> LobbyManagerResponse {
@@ -161,9 +172,10 @@ impl LobbyManager {
     fn start_lobby(&mut self, lobby_id: DraftLobbyId) -> LobbyManagerResponse {
         let start = match self.active_lobbies.get_mut(&lobby_id) {
             Some(lobby) => {
-                let draft_set = self.draft_database.get_item_list();
-                lobby.start(&draft_set)
-            },
+                let draft_set = self.draft_database.get_set(lobby.get_set()).unwrap();
+                let draft_items = draft_set.get_item_list();
+                lobby.start(&draft_items)
+            }
             None => Err(io::Error::new(io::ErrorKind::NotFound, "Lobby not found"))
         };
         match start {
@@ -185,6 +197,7 @@ impl LobbyManager {
             return Err(io::Error::new(io::ErrorKind::NotFound, "Couldn't find lobby"));
         }
         let lobby = lobby.unwrap();
+        let draft_set = self.draft_database.get_set(lobby.get_set()).unwrap();
 
         // If the draft is still waiting to start, show joining players and open slots
         let (joining_players, open_slots) = match lobby.draft_has_started() {
@@ -202,20 +215,20 @@ impl LobbyManager {
             Some(state) => {
                 let allocated_picks: Vec<(String, String)> = state.allocated_items.iter()
                     .map(|pick_id| {
-                        let template = self.draft_database.get_item_by_id(&pick_id).unwrap().get_template().clone();
-                        let stats = self.draft_database.get_item_by_id(&pick_id).unwrap().get_stats().clone();
+                        let template = draft_set.get_item_by_id(&pick_id).unwrap().get_template().clone();
+                        let stats = draft_set.get_item_by_id(&pick_id).unwrap().get_stats().clone();
                         (template, stats)
                     })
                     .collect();
                 let raw_picks: Vec<String> = state.allocated_items.iter()
-                    .map(|pick_id| self.draft_database.get_item_by_id(&pick_id).unwrap().get_raw().clone())
+                    .map(|pick_id| draft_set.get_item_by_id(&pick_id).unwrap().get_raw().clone())
                     .collect();
                 let pending_picks: Vec<(DraftItemId, String, String)> = match lobby.get_current_pack_contents_for_player(&player_id) {
                     Some(pack_contents) => {
                         let mut v: Vec<(DraftItemId, String, String)> = Vec::new();
                         for &item_id in pack_contents.iter() {
-                            v.push((item_id, self.draft_database.get_item_by_id(&item_id).unwrap().get_template().clone(),
-                                    self.draft_database.get_item_by_id(&item_id).unwrap().get_stats().clone()))
+                            v.push((item_id, draft_set.get_item_by_id(&item_id).unwrap().get_template().clone(),
+                                    draft_set.get_item_by_id(&item_id).unwrap().get_stats().clone()))
                         }
                         v
                     }
@@ -249,7 +262,7 @@ impl LobbyManager {
             time_to_pick_s,
             draft_order,
             rounds_and_picks,
-            raw_picks
+            raw_picks,
         });
     }
 

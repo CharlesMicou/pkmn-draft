@@ -24,13 +24,13 @@ impl DraftItem {
     }
 }
 
-pub struct DraftDatabase {
+pub struct DraftSet {
     deduplicated_ids: HashMap<String, Vec<DraftItemId>>,
     id_to_item: HashMap<DraftItemId, DraftItem>,
 }
 
-impl DraftDatabase {
-    pub fn from_folder(dir_name: &str) -> io::Result<DraftDatabase> {
+impl DraftSet {
+    pub fn from_folder(dir_name: &str) -> io::Result<DraftSet> {
         let dir: String = dir_name.to_string() + &*"/generated".to_string();
         let template_path = Path::new(&dir);
         let mut items: HashMap<DraftItemId, DraftItem> = HashMap::new();
@@ -55,7 +55,7 @@ impl DraftDatabase {
             i += 1;
         };
 
-        Ok(DraftDatabase {
+        Ok(DraftSet {
             deduplicated_ids,
             id_to_item: items,
         })
@@ -69,5 +69,34 @@ impl DraftDatabase {
 
     pub fn get_item_by_id(&self, id: &DraftItemId) -> Option<&DraftItem> {
         self.id_to_item.get(id)
+    }
+}
+
+pub struct DraftDb {
+    sets: HashMap<String, DraftSet>,
+}
+
+impl DraftDb {
+    pub fn from_folder(dir_name: &str) -> io::Result<DraftDb> {
+        let mut sets = HashMap::new();
+
+        for entry in fs::read_dir(Path::new(dir_name))? {
+            let entry_path = entry?.path();
+            let set_name = entry_path.file_name().unwrap().to_str().unwrap().to_string();
+            log::info!("Loading draft set {set_name}");
+            let set = DraftSet::from_folder(entry_path.to_str().unwrap());
+            match set {
+                Ok(s) => {sets.insert(set_name, s);}
+                Err(e) => log::error!("Failed to load {set_name}: {e}")
+            }
+        }
+
+        Ok(DraftDb{
+            sets,
+        })
+    }
+
+    pub fn get_set(&self, set_name: &String) -> Option<&DraftSet> {
+        self.sets.get(set_name)
     }
 }
